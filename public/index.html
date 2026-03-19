@@ -769,7 +769,7 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
       <div className="game-card-body">
         <div className="matchup-row">
           <div className="team-side away">
-            <div className="team-name">{away.city}</div>
+            <div className="team-name">{away.city} {away.name}</div>
             <div className="team-record">{away.w}-{away.l} • {away.streak}</div>
             {(isLive || isFinal) && <div className="team-name" style={{ fontSize: 24, marginTop: 4 }}>{game.away.score}</div>}
           </div>
@@ -787,7 +787,7 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
           </div>
 
           <div className="team-side home">
-            <div className="team-name">{home.city}</div>
+            <div className="team-name">{home.city} {home.name}</div>
             <div className="team-record">{home.w}-{home.l} • {home.streak}</div>
             {(isLive || isFinal) && <div className="team-name" style={{ fontSize: 24, marginTop: 4 }}>{game.home.score}</div>}
           </div>
