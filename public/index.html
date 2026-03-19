@@ -1159,8 +1159,14 @@ function predictGame(home, away) {
   const baseHome = (home.ppg + away.oppPpg) / 2 * paceAdj;
   const baseAway = (away.ppg + home.oppPpg) / 2 * paceAdj;
   const baseAvg = (baseHome + baseAway) / 2;
-  const projHome = Math.round(baseAvg + spread / 2);
-  const projAway = Math.round(baseAvg - spread / 2);
+  let projHome = Math.round(baseAvg + spread / 2);
+  let projAway = Math.round(baseAvg - spread / 2);
+  // Ensure the favored team always projects ahead by at least 1
+  if (projHome === projAway) {
+    if (spread > 0) projHome += 1;
+    else if (spread < 0) projAway += 1;
+    else projHome += 1; // home court tiebreaker
+  }
 
   // Confidence
   const gpMin = Math.min(home.gp, away.gp);
