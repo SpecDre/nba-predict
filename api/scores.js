@@ -64,8 +64,8 @@ function parseFinalScores(games, lineScores) {
 
     const homeId = game.HOME_TEAM_ID;
     const awayId = game.VISITOR_TEAM_ID;
-    const homeAbbr = TEAM_MAP[homeId] || 'UNK';
-    const awayAbbr = TEAM_MAP[awayId] || 'UNK';
+    const homeAbbr = (typeof homeId === 'string' && homeId.length <= 3) ? homeId : (TEAM_MAP[homeId] || 'UNK');
+    const awayAbbr = (typeof awayId === 'string' && awayId.length <= 3) ? awayId : (TEAM_MAP[awayId] || 'UNK');
 
     // Get scores from line scores
     const homeLines = lineScores.filter(ls => ls.TEAM_ID === homeId && ls.GAME_ID === gameId);
