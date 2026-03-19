@@ -697,6 +697,161 @@ body {
   .hide-mobile { display: none; }
 }
 
+/* ========== TRACK RECORD ========== */
+.tracker-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.tracker-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.tracker-card-label {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.tracker-card-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.tracker-card-sub {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.tracker-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.streak-hot { background: var(--green-bg); color: var(--green); }
+.streak-cold { background: var(--red-bg); color: var(--red); }
+
+.tracker-bar-container {
+  margin-top: 0.75rem;
+}
+
+.tracker-bar {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.tracker-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.tracker-history-title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.tracker-game {
+  display: grid;
+  grid-template-columns: 80px 1fr 80px 80px;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  gap: 1rem;
+  font-size: 0.85rem;
+}
+
+.tracker-game:hover { border-color: var(--border-light); }
+
+.tracker-date {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.tracker-matchup {
+  font-family: 'Oswald', sans-serif;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.tracker-result {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  text-align: center;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.result-correct { background: var(--green-bg); color: var(--green); }
+.result-wrong { background: var(--red-bg); color: var(--red); }
+.result-push { background: var(--yellow-bg); color: var(--yellow); }
+
+.tracker-score {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.tracker-empty {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--text-muted);
+}
+
+.tracker-empty h3 {
+  font-family: 'Oswald', sans-serif;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.tracker-ou-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  margin-left: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .tracker-summary { grid-template-columns: repeat(2, 1fr); }
+  .tracker-game { grid-template-columns: 60px 1fr 60px; }
+  .tracker-score { display: none; }
+  .tracker-card-value { font-size: 1.5rem; }
+}
+
 /* ========== SCROLLBAR ========== */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-primary); }
@@ -723,6 +878,7 @@ body {
   <button class="tab active" data-tab="games">Today's Games</button>
   <button class="tab" data-tab="rankings">Power Rankings</button>
   <button class="tab" data-tab="overunder">Over / Under</button>
+  <button class="tab" data-tab="tracker">Track Record</button>
   <button class="tab" data-tab="props">Player Props</button>
 </nav>
 
@@ -755,6 +911,14 @@ body {
         <p>Calculating totals...</p>
       </div>
     </div>
+  </div>
+
+  <!-- TRACK RECORD -->
+  <div class="tab-content" id="tab-tracker">
+    <!-- Summary Cards -->
+    <div class="tracker-summary" id="trackerSummary"></div>
+    <!-- Game History -->
+    <div id="trackerHistory"></div>
   </div>
 
   <!-- PLAYER PROPS -->
@@ -1312,6 +1476,9 @@ async function init() {
     renderGames(APP.predictions, APP.odds);
     renderOU(APP.predictions, APP.odds);
 
+    // Save predictions for accuracy tracking
+    saveTodaysPredictions(APP.predictions, APP.odds);
+
     // Update timestamp
     document.getElementById('lastUpdate').textContent =
       `Updated ${new Date().toLocaleTimeString()} — ${Object.keys(APP.profiles).length} teams loaded`;
@@ -1331,6 +1498,282 @@ async function init() {
 // Auto-refresh every 5 minutes
 init();
 setInterval(init, 5 * 60 * 1000);
+
+// ============================================================
+// ACCURACY TRACKER
+// ============================================================
+
+const TRACKER_KEY = 'nba_predict_tracker';
+const TRACKER_PREDICTIONS_KEY = 'nba_predict_daily';
+
+// Load tracker data from localStorage
+function loadTracker() {
+  try {
+    return JSON.parse(localStorage.getItem(TRACKER_KEY)) || [];
+  } catch { return []; }
+}
+
+function saveTracker(data) {
+  // Keep only last 30 days
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+  const filtered = data.filter(d => new Date(d.date) >= cutoff);
+  localStorage.setItem(TRACKER_KEY, JSON.stringify(filtered));
+}
+
+// Save today's predictions to localStorage
+function saveTodaysPredictions(predictions, odds) {
+  if (!predictions || predictions.length === 0) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const stored = {};
+  try { Object.assign(stored, JSON.parse(localStorage.getItem(TRACKER_PREDICTIONS_KEY)) || {}); } catch {}
+
+  // Don't overwrite if already saved today
+  if (stored[today] && stored[today].length > 0) return;
+
+  stored[today] = predictions.map(p => {
+    // Find Vegas total for O/U tracking
+    let vegasTotal = null;
+    if (odds && odds.games) {
+      const match = odds.games.find(g =>
+        g.homeTeam.toLowerCase().includes(p.homeName.toLowerCase()) ||
+        g.awayTeam.toLowerCase().includes(p.awayName.toLowerCase())
+      );
+      if (match && match.consensus && match.consensus.totals && match.consensus.totals.Over) {
+        vegasTotal = match.consensus.totals.Over.total;
+      }
+    }
+
+    return {
+      homeAbbr: p.homeAbbr,
+      awayAbbr: p.awayAbbr,
+      homeName: p.homeFullName,
+      awayName: p.awayFullName,
+      pick: p.pick,
+      homeWinProb: p.homeWinProb,
+      awayWinProb: p.awayWinProb,
+      spread: p.spread,
+      projTotal: p.projTotal,
+      projHome: p.projHome,
+      projAway: p.projAway,
+      confidence: p.confidence,
+      vegasTotal,
+    };
+  });
+
+  // Keep only last 7 days of pending predictions
+  const keys = Object.keys(stored).sort();
+  while (keys.length > 7) {
+    delete stored[keys.shift()];
+  }
+
+  localStorage.setItem(TRACKER_PREDICTIONS_KEY, JSON.stringify(stored));
+}
+
+// Check yesterday's scores and grade predictions
+async function checkScores() {
+  const stored = {};
+  try { Object.assign(stored, JSON.parse(localStorage.getItem(TRACKER_PREDICTIONS_KEY)) || {}); } catch {}
+
+  const tracker = loadTracker();
+  const trackedDates = new Set(tracker.map(g => g.date));
+
+  // Check each stored prediction day that hasn't been graded yet
+  for (const [date, preds] of Object.entries(stored)) {
+    if (trackedDates.has(date)) continue;
+
+    // Only check if the date is in the past
+    const predDate = new Date(date + 'T23:59:59');
+    if (predDate >= new Date()) continue;
+
+    try {
+      const [y, m, d] = date.split('-');
+      const res = await fetchJSON(`/api/scores?date=${date}`);
+
+      if (!res || !res.results || res.results.length === 0) continue;
+
+      for (const pred of preds) {
+        // Find matching game in results
+        const result = res.results.find(r =>
+          r.homeTeam === pred.homeAbbr && r.awayTeam === pred.awayAbbr
+        );
+
+        if (!result) continue;
+
+        const correct = pred.pick === result.winner;
+        const actualTotal = result.totalScore;
+        let ouResult = null;
+        if (pred.vegasTotal) {
+          if (actualTotal > pred.vegasTotal) ouResult = 'over';
+          else if (actualTotal < pred.vegasTotal) ouResult = 'under';
+          else ouResult = 'push';
+        }
+
+        // Model O/U call vs actual
+        let modelOUCorrect = null;
+        if (pred.vegasTotal && pred.projTotal) {
+          const modelCall = pred.projTotal > pred.vegasTotal ? 'over' : 'under';
+          if (ouResult === 'push') modelOUCorrect = null;
+          else modelOUCorrect = modelCall === ouResult;
+        }
+
+        tracker.push({
+          date,
+          homeAbbr: pred.homeAbbr,
+          awayAbbr: pred.awayAbbr,
+          pick: pred.pick,
+          winner: result.winner,
+          correct,
+          homeScore: result.homeScore,
+          awayScore: result.awayScore,
+          projHome: pred.projHome,
+          projAway: pred.projAway,
+          projTotal: pred.projTotal,
+          actualTotal,
+          vegasTotal: pred.vegasTotal,
+          ouResult,
+          modelOUCorrect,
+          confidence: pred.confidence,
+          spread: pred.spread,
+          margin: result.margin,
+        });
+      }
+    } catch (e) {
+      console.warn(`Score check failed for ${date}:`, e.message);
+    }
+  }
+
+  saveTracker(tracker);
+  renderTracker(tracker);
+}
+
+// Render Track Record tab
+function renderTracker(data) {
+  const summary = document.getElementById('trackerSummary');
+  const history = document.getElementById('trackerHistory');
+
+  if (!data || data.length === 0) {
+    summary.innerHTML = '';
+    history.innerHTML = `
+      <div class="tracker-empty">
+        <h3>NO TRACK RECORD YET</h3>
+        <p>Predictions are saved automatically when games are on the schedule.<br>
+        Results are graded the next day after final scores come in.</p>
+        <p style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+          Come back after a game day to see your model's accuracy.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  // Calculate stats
+  const total = data.length;
+  const wins = data.filter(g => g.correct).length;
+  const losses = total - wins;
+  const winPct = total > 0 ? (wins / total * 100) : 0;
+
+  // O/U stats
+  const ouGames = data.filter(g => g.modelOUCorrect !== null);
+  const ouWins = ouGames.filter(g => g.modelOUCorrect).length;
+  const ouTotal = ouGames.length;
+  const ouPct = ouTotal > 0 ? (ouWins / ouTotal * 100) : 0;
+
+  // Streak
+  let streak = 0;
+  let streakType = '';
+  for (let i = data.length - 1; i >= 0; i--) {
+    if (i === data.length - 1) {
+      streakType = data[i].correct ? 'W' : 'L';
+      streak = 1;
+    } else if ((data[i].correct && streakType === 'W') || (!data[i].correct && streakType === 'L')) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  // Avg confidence on wins vs losses
+  const avgConfWins = data.filter(g => g.correct).reduce((s, g) => s + g.confidence, 0) / Math.max(wins, 1);
+  const avgConfLosses = data.filter(g => !g.correct).reduce((s, g) => s + g.confidence, 0) / Math.max(losses, 1);
+
+  // Score projection accuracy (avg error)
+  const totalErrors = data.map(g => Math.abs(g.projTotal - g.actualTotal));
+  const avgTotalError = totalErrors.reduce((a, b) => a + b, 0) / total;
+
+  // Last 7 days
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const last7 = data.filter(g => new Date(g.date) >= sevenDaysAgo);
+  const l7Wins = last7.filter(g => g.correct).length;
+  const l7Pct = last7.length > 0 ? (l7Wins / last7.length * 100) : 0;
+
+  const streakClass = streakType === 'W' ? 'streak-hot' : 'streak-cold';
+  const barColor = winPct >= 55 ? 'var(--green)' : winPct >= 48 ? 'var(--yellow)' : 'var(--red)';
+
+  summary.innerHTML = `
+    <div class="tracker-card">
+      <div class="tracker-card-label">Overall Record</div>
+      <div class="tracker-card-value" style="color:${winPct >= 52 ? 'var(--green)' : winPct >= 48 ? 'var(--yellow)' : 'var(--red)'}">${wins}-${losses}</div>
+      <div class="tracker-card-sub">${winPct.toFixed(1)}% win rate</div>
+      <div class="tracker-bar-container">
+        <div class="tracker-bar">
+          <div class="tracker-bar-fill" style="width:${winPct}%;background:${barColor}"></div>
+        </div>
+      </div>
+    </div>
+    <div class="tracker-card">
+      <div class="tracker-card-label">Last 7 Days</div>
+      <div class="tracker-card-value" style="color:${l7Pct >= 52 ? 'var(--green)' : l7Pct >= 48 ? 'var(--yellow)' : 'var(--red)'}">${l7Wins}-${last7.length - l7Wins}</div>
+      <div class="tracker-card-sub">${l7Pct.toFixed(1)}% (${last7.length} games)</div>
+      <div class="tracker-streak ${streakClass}">${streakType}${streak}</div>
+    </div>
+    <div class="tracker-card">
+      <div class="tracker-card-label">O/U Record</div>
+      <div class="tracker-card-value" style="color:${ouPct >= 52 ? 'var(--green)' : ouPct >= 48 ? 'var(--yellow)' : 'var(--text-muted)'}">${ouWins}-${ouTotal - ouWins}</div>
+      <div class="tracker-card-sub">${ouTotal > 0 ? ouPct.toFixed(1) + '% hit rate' : 'No O/U data'}</div>
+    </div>
+    <div class="tracker-card">
+      <div class="tracker-card-label">Avg Total Error</div>
+      <div class="tracker-card-value" style="color:${avgTotalError <= 8 ? 'var(--green)' : avgTotalError <= 12 ? 'var(--yellow)' : 'var(--red)'}">±${avgTotalError.toFixed(1)}</div>
+      <div class="tracker-card-sub">projected vs actual</div>
+    </div>
+  `;
+
+  // Game history (most recent first)
+  const sorted = [...data].reverse();
+  const historyHTML = sorted.map(g => {
+    const resultClass = g.correct ? 'result-correct' : 'result-wrong';
+    const resultText = g.correct ? '✓ HIT' : '✗ MISS';
+    const ouBadge = g.modelOUCorrect !== null
+      ? `<span class="tracker-ou-badge ${g.modelOUCorrect ? 'result-correct' : 'result-wrong'}">${g.modelOUCorrect ? 'O/U ✓' : 'O/U ✗'}</span>`
+      : '';
+
+    return `
+      <div class="tracker-game">
+        <div class="tracker-date">${g.date.slice(5)}</div>
+        <div class="tracker-matchup">
+          <span style="color:${TEAM_COLORS[g.awayAbbr] || '#ccc'}">${g.awayAbbr}</span>
+          <span style="color:var(--text-muted)"> @ </span>
+          <span style="color:${TEAM_COLORS[g.homeAbbr] || '#ccc'}">${g.homeAbbr}</span>
+          <span style="color:var(--text-muted);font-family:'JetBrains Mono';font-size:0.7rem;margin-left:0.5rem;">Pick: ${g.pick}</span>
+          ${ouBadge}
+        </div>
+        <div class="tracker-result ${resultClass}">${resultText}</div>
+        <div class="tracker-score">${g.awayScore}-${g.homeScore}</div>
+      </div>
+    `;
+  }).join('');
+
+  history.innerHTML = `
+    <div class="tracker-history-title">Game History (Last 30 Days)</div>
+    ${historyHTML}
+  `;
+}
+
+// Init tracker on load
+checkScores();
 </script>
 </body>
 </html>
