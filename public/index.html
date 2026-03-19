@@ -493,8 +493,9 @@ const ENGINE = {
     spread += this.restAdjustment(homeB2B, true) - this.restAdjustment(awayB2B, false);
 
     // Projected scores
-    const avgTotal = (away.ppg + away.papg + home.ppg + home.papg) / 4;
-    const paceAdj = (away.pace + home.pace) / 2 / 100;
+    // (what away scores + what home allows + what home scores + what away allows) / 2 = combined total
+    const avgTotal = (away.ppg + home.papg + home.ppg + away.papg) / 2;
+    const paceAdj = (away.pace + home.pace) / 200;
     const projTotal = avgTotal * paceAdj;
     const homeScore = Math.round((projTotal / 2) + (spread / 2));
     const awayScore = Math.round((projTotal / 2) - (spread / 2));
@@ -510,8 +511,8 @@ const ENGINE = {
       awayWinProb: Math.round(awayWinProb * 1000) / 10,
       homeWinProb: Math.round(homeWinProb * 1000) / 10,
       spread: Math.round(spread * 10) / 10,
-      projAwayScore: Math.max(85, awayScore),
-      projHomeScore: Math.max(85, homeScore),
+      projAwayScore: awayScore,
+      projHomeScore: homeScore,
       projTotal: Math.round(projTotal * 10) / 10,
       confidence,
       pick: homeWinProb > awayWinProb ? homeKey : awayKey,
