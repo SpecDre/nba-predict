@@ -43,13 +43,38 @@ const TEAM_COLORS = {
   'DET': '#C8102E', 'CHA': '#1D1160',
 };
 
-async function fetchNBA(endpoint, params = {}) {
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+async function fetchNBA(endpoint, params = {}, retries = 2) {
   const url = new URL(`${NBA_BASE}/${endpoint}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   
-  const res = await fetch(url.toString(), { headers: HEADERS, timeout: 10000 });
-  if (!res.ok) throw new Error(`NBA API ${res.status}: ${res.statusText}`);
-  return res.json();
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url.toString(), { headers: HEADERS, timeout: 15000 });
+      if (res.status === 429 || res.status === 403) {
+        // Rate limited — wait and retry
+        if (attempt < retries) {
+          await delay(2000 * (attempt + 1));
+          continue;
+        }
+      }
+      if (!res.ok) throw new Error(`NBA API ${res.status}: ${res.statusText}`);
+      const json = await res.json();
+      // Check if NBA returned empty data (stealth rate limit)
+      if (json.resultSets && json.resultSets[0] && json.resultSets[0].rowSet.length === 0 && attempt < retries) {
+        await delay(1500 * (attempt + 1));
+        continue;
+      }
+      return json;
+    } catch (e) {
+      if (attempt < retries) {
+        await delay(2000 * (attempt + 1));
+        continue;
+      }
+      throw e;
+    }
+  }
 }
 
 function parseNBAResponse(data, setIndex = 0) {
@@ -327,7 +352,7 @@ async function getPlayerStats(season = '2025-26') {
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+  res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=1200');
   
   const { type, season } = req.query;
   const szn = season || '2025-26';
@@ -355,25 +380,27 @@ module.exports = async function handler(req, res) {
         result = await getPlayerStats(szn);
         break;
       case 'all': {
-        const [sb, teamBase, teamAdv, t10, t5, stand] = await Promise.all([
+        // Stagger calls to avoid NBA API rate limiting
+        // Batch 1
+        const [sb, teamBase] = await Promise.all([
           getScoreboard(),
           getTeamStats(szn),
+        ]);
+        await delay(500);
+        // Batch 2
+        const [teamAdv, stand] = await Promise.all([
           getTeamAdvanced(szn),
+          getStandings(szn),
+        ]);
+        await delay(500);
+        // Batch 3
+        const [t10, t5] = await Promise.all([
           getTeamStatsLastN(10, szn),
           getTeamStatsLastN(5, szn),
-          getStandings(szn),
         ]);
         result = {
           scoreboard: sb,
           teamStats: { base: teamBase, advanced: teamAdv, last10: t10, last5: t5 },
-          standings: stand,
-          meta: { season: szn, timestamp: new Date().toISOString() },
-          teamMap: TEAM_MAP,
-          teamNames: TEAM_NAMES,
-          teamColors: TEAM_COLORS,
-        };
-        break;
-      }
           standings: stand,
           meta: { season: szn, timestamp: new Date().toISOString() },
           teamMap: TEAM_MAP,
