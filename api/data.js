@@ -355,13 +355,19 @@ module.exports = async function handler(req, res) {
         result = await getPlayerStats(szn);
         break;
       case 'all': {
-        const [sb, teamBase, teamAdv, t10, t5, stand, fourFactors, oppStats] = await Promise.all([
+        // Batch 1: core data
+        const [sb, teamBase, teamAdv, stand] = await Promise.all([
           getScoreboard(),
           getTeamStats(szn),
           getTeamAdvanced(szn),
+          getStandings(szn),
+        ]);
+        // Small delay to avoid NBA API rate limit
+        await new Promise(r => setTimeout(r, 600));
+        // Batch 2: supplemental data
+        const [t10, t5, fourFactors, oppStats] = await Promise.all([
           getTeamStatsLastN(10, szn),
           getTeamStatsLastN(5, szn),
-          getStandings(szn),
           getTeamFourFactors(szn),
           getTeamOpponentStats(szn),
         ]);
