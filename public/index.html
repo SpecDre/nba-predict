@@ -988,9 +988,20 @@ const HOME_COURT_EDGE = 2.8;
 const B2B_PENALTY = 3.5;
 const PYTH_EXP = 13.91;
 
+// v2 PREDICTION MODEL WEIGHTS
+// Research-backed: Net rating is #1 predictor, Elo adds game-by-game context,
+// Four Factors capture the "how" of winning, shooting efficiency = #1 in-game factor
 const WEIGHTS = {
-  netRating: 0.30, recentForm: 0.15, homeCourt: 0.10,
-  rest: 0.10, pythagorean: 0.15, momentum: 0.10, eliteRecord: 0.10,
+  netRating: 0.22,     // Still #1 - overall team quality
+  elo: 0.12,           // NEW - game-by-game momentum rating
+  fourFactors: 0.12,   // NEW - eFG%, TOV%, OREB%, FT rate
+  shooting: 0.08,      // NEW - FG%, 3P%, FT%
+  homeCourt: 0.08,     // Home court advantage
+  recentForm: 0.10,    // Last 10 games
+  momentum: 0.08,      // Last 5 games + streak
+  pythagorean: 0.10,   // Expected wins from scoring
+  eliteRecord: 0.05,   // Overall season record
+  rest: 0.05,          // B2B and rest advantage
 };
 
 function pointsToWinProb(ptDiff) {
@@ -1003,13 +1014,19 @@ function pythagoreanWins(pf, pa) {
   return pfE / (pfE + paE);
 }
 
-function buildProfiles(base, advanced, last10, last5) {
+function buildProfiles(base, advanced, last10, last5, fourFactors, oppStats, standings) {
   const profiles = {};
   if (!base || !advanced) return profiles;
 
   const advMap = {}; advanced.forEach(t => advMap[t.TEAM_ID] = t);
   const l10Map = {}; if (last10) last10.forEach(t => l10Map[t.TEAM_ID] = t);
   const l5Map = {}; if (last5) last5.forEach(t => l5Map[t.TEAM_ID] = t);
+  const ffMap = {}; if (fourFactors) fourFactors.forEach(t => ffMap[t.TEAM_ID] = t);
+  const oppMap = {}; if (oppStats) oppStats.forEach(t => oppMap[t.TEAM_ID] = t);
+  const standMap = {}; if (standings) standings.forEach(t => {
+    const abbr = t.TeamAbbreviation || t.TEAM_ABBREVIATION;
+    if (abbr) standMap[abbr] = t;
+  });
 
   base.forEach(team => {
     const id = team.TEAM_ID;
@@ -1017,29 +1034,66 @@ function buildProfiles(base, advanced, last10, last5) {
     const adv = advMap[id] || {};
     const l10 = l10Map[id] || {};
     const l5 = l5Map[id] || {};
+    const ff = ffMap[id] || {};
+    const opp = oppMap[id] || {};
+    const stand = standMap[abbr] || {};
     const gp = team.GP || 1;
+    const w = team.W || 0;
+    const l_count = team.L || 0;
     const ppg = team.PTS || 110;
     const netR = adv.NET_RATING || 0;
-    const oppPpg = ppg - netR;
+    const oppPpg = opp.PTS || (ppg - netR);
+
+    // Elo: initialize from win% (1500 baseline, scale by performance)
+    const winPct = w / Math.max(gp, 1);
+    const elo = 1500 + (winPct - 0.5) * 600 + (netR * 15);
+
+    // Parse streak from standings
+    let streak = 0;
+    let streakType = '';
+    const streakStr = stand.strCurrentStreak || stand.CurrentStreak || '';
+    if (streakStr) {
+      const match = streakStr.match(/(W|L)\s*(\d+)/i);
+      if (match) { streakType = match[1].toUpperCase(); streak = parseInt(match[2]); }
+    }
 
     profiles[abbr] = {
       id, abbr,
       name: (TEAM_FULL[abbr] || abbr).split(' ').pop(),
       fullName: TEAM_FULL[abbr] || abbr,
-      gp, w: team.W || 0, l: team.L || 0,
-      winPct: (team.W || 0) / Math.max(gp, 1),
+      gp, w, l: l_count,
+      winPct,
       ppg, oppPpg,
       ortg: adv.OFF_RATING || 110,
       drtg: adv.DEF_RATING || 110,
       netRating: netR,
       pace: adv.PACE || 100,
+      elo,
+      // Shooting efficiency
+      fgPct: team.FG_PCT || 0.46,
+      fg3Pct: team.FG3_PCT || 0.36,
+      ftPct: team.FT_PCT || 0.78,
+      // Four Factors
+      efgPct: ff.EFG_PCT || adv.EFG_PCT || 0.52,
+      tovPct: ff.TM_TOV_PCT || (team.TOV ? team.TOV / (team.FGA + 0.44 * team.FTA + team.TOV) : 0.13),
+      orebPct: ff.OREB_PCT || adv.OREB_PCT || 0.25,
+      ftRate: ff.FTA_RATE || (team.FTA ? team.FTA / team.FGA : 0.25),
+      // Opponent Four Factors (what they allow)
+      oppEfgPct: opp.FG_PCT ? (opp.FG_PCT + 1.5 * (opp.FG3_PCT || 0.36) * ((opp.FG3A || 35) / (opp.FGA || 88))) : 0.52,
+      oppFgPct: opp.FG_PCT || 0.46,
+      oppFg3Pct: opp.FG3_PCT || 0.36,
+      // Pythagorean
       pythWinPct: pythagoreanWins(ppg, oppPpg),
+      // Streak & Momentum
+      streak, streakType,
+      streakPts: streakType === 'W' ? Math.min(streak * 0.5, 3) : (streakType === 'L' ? -Math.min(streak * 0.5, 3) : 0),
+      // Recent form
       last10: {
-        winPct: l10.GP ? (l10.W / l10.GP) : ((team.W || 0) / Math.max(gp, 1)),
+        winPct: l10.GP ? (l10.W / l10.GP) : winPct,
         ppg: l10.PTS || ppg,
       },
       last5: {
-        winPct: l5.GP ? (l5.W / l5.GP) : ((team.W || 0) / Math.max(gp, 1)),
+        winPct: l5.GP ? (l5.W / l5.GP) : winPct,
         ppg: l5.PTS || ppg,
       },
     };
@@ -1050,50 +1104,87 @@ function buildProfiles(base, advanced, last10, last5) {
 function predictGame(home, away) {
   if (!home || !away) return null;
 
+  // === FACTOR 1: Net Rating (22%) ===
   const netRatingPts = home.netRating - away.netRating;
-  const formDiff = (home.last10.winPct - away.last10.winPct) * 10;
+
+  // === FACTOR 2: Elo Rating (12%) ===
+  const eloDiff = (home.elo - away.elo) / 100; // scale to ~points
+
+  // === FACTOR 3: Four Factors (12%) ===
+  // eFG% diff, TOV% advantage, OREB% advantage, FT rate advantage
+  const efgDiff = (home.efgPct - away.efgPct) * 40;
+  const tovDiff = (away.tovPct - home.tovPct) * 30; // lower TOV = better
+  const orebDiff = (home.orebPct - away.orebPct) * 20;
+  const ftRateDiff = (home.ftRate - away.ftRate) * 15;
+  const fourFactorsPts = efgDiff + tovDiff + orebDiff + ftRateDiff;
+
+  // === FACTOR 4: Shooting Efficiency (8%) ===
+  const shootingPts = 
+    (home.fgPct - away.fgPct) * 30 +
+    (home.fg3Pct - away.fg3Pct) * 20 +
+    (home.ftPct - away.ftPct) * 10;
+
+  // === FACTOR 5: Home Court (8%) ===
   const homePts = HOME_COURT_EDGE;
-  const restPts = 0; // default: no B2B data from scoreboard
+
+  // === FACTOR 6: Recent Form L10 (10%) ===
+  const formDiff = (home.last10.winPct - away.last10.winPct) * 10;
+
+  // === FACTOR 7: Momentum L5 + Streak (8%) ===
+  const momentumDiff = (home.last5.winPct - away.last5.winPct) * 6 + (home.streakPts - away.streakPts);
+
+  // === FACTOR 8: Pythagorean (10%) ===
   const pythDiff = (home.pythWinPct - away.pythWinPct) * 10;
-  const momentumDiff = (home.last5.winPct - away.last5.winPct) * 8;
-  const eliteDiff = (home.winPct - away.winPct) * 6;
 
+  // === FACTOR 9: Season Record (5%) ===
+  const recordDiff = (home.winPct - away.winPct) * 6;
+
+  // === FACTOR 10: Rest (5%) ===
+  const restPts = 0; // populated when B2B data available
+
+  // Weighted composite spread
   const rawSpread =
-    netRatingPts * 1.0 * WEIGHTS.netRating +
-    formDiff * 1.0 * WEIGHTS.recentForm +
-    homePts * 1.0 * WEIGHTS.homeCourt +
-    restPts * 1.0 * WEIGHTS.rest +
-    pythDiff * 1.0 * WEIGHTS.pythagorean +
-    momentumDiff * 1.0 * WEIGHTS.momentum +
-    eliteDiff * 1.0 * WEIGHTS.eliteRecord;
+    netRatingPts * WEIGHTS.netRating +
+    eloDiff * WEIGHTS.elo +
+    fourFactorsPts * WEIGHTS.fourFactors +
+    shootingPts * WEIGHTS.shooting +
+    homePts * WEIGHTS.homeCourt +
+    formDiff * WEIGHTS.recentForm +
+    momentumDiff * WEIGHTS.momentum +
+    pythDiff * WEIGHTS.pythagorean +
+    recordDiff * WEIGHTS.eliteRecord +
+    restPts * WEIGHTS.rest;
 
-  // Scale up — factors above are already weighted portions, 
-  // but we need a realistic spread range
-  const spread = Math.max(-20, Math.min(20, rawSpread * 2.5));
+  // Scale to realistic NBA spread range
+  const spread = Math.max(-25, Math.min(25, rawSpread * 2.2));
   const homeWinProb = pointsToWinProb(spread);
 
+  // Score projection
   const avgPace = (home.pace + away.pace) / 2;
   const paceAdj = avgPace / 100;
-  // Base scores from PPG vs opponent allowed, pace-adjusted
   const baseHome = (home.ppg + away.oppPpg) / 2 * paceAdj;
   const baseAway = (away.ppg + home.oppPpg) / 2 * paceAdj;
-  // Apply spread so projected scores align with the pick
   const baseAvg = (baseHome + baseAway) / 2;
   const projHome = Math.round(baseAvg + spread / 2);
   const projAway = Math.round(baseAvg - spread / 2);
 
+  // Confidence
   const gpMin = Math.min(home.gp, away.gp);
   const sampleConf = Math.min(gpMin / 30, 1);
   const marginConf = Math.min(Math.abs(spread) / 12, 1);
   const confidence = Math.round((sampleConf * 0.6 + marginConf * 0.4) * 100);
 
+  // Factor breakdown for UI
   const factors = [
-    { name: 'Net Rating', pts: netRatingPts, w: WEIGHTS.netRating, hVal: home.netRating.toFixed(1), aVal: away.netRating.toFixed(1) },
-    { name: 'Form (L10)', pts: formDiff, w: WEIGHTS.recentForm, hVal: (home.last10.winPct*100).toFixed(0)+'%', aVal: (away.last10.winPct*100).toFixed(0)+'%' },
-    { name: 'Home Court', pts: homePts, w: WEIGHTS.homeCourt, hVal: '+2.8', aVal: '—' },
-    { name: 'Pythagorean', pts: pythDiff, w: WEIGHTS.pythagorean, hVal: (home.pythWinPct*100).toFixed(1)+'%', aVal: (away.pythWinPct*100).toFixed(1)+'%' },
-    { name: 'Momentum (L5)', pts: momentumDiff, w: WEIGHTS.momentum, hVal: (home.last5.winPct*100).toFixed(0)+'%', aVal: (away.last5.winPct*100).toFixed(0)+'%' },
-    { name: 'Season W%', pts: eliteDiff, w: WEIGHTS.eliteRecord, hVal: (home.winPct*100).toFixed(1)+'%', aVal: (away.winPct*100).toFixed(1)+'%' },
+    { name: 'Net Rating', pts: netRatingPts * WEIGHTS.netRating * 2.2 },
+    { name: 'Elo Rating', pts: eloDiff * WEIGHTS.elo * 2.2 },
+    { name: 'Four Factors', pts: fourFactorsPts * WEIGHTS.fourFactors * 2.2 },
+    { name: 'Shooting', pts: shootingPts * WEIGHTS.shooting * 2.2 },
+    { name: 'Home Court', pts: homePts * WEIGHTS.homeCourt * 2.2 },
+    { name: 'Form (L10)', pts: formDiff * WEIGHTS.recentForm * 2.2 },
+    { name: 'Momentum', pts: momentumDiff * WEIGHTS.momentum * 2.2 },
+    { name: 'Pythagorean', pts: pythDiff * WEIGHTS.pythagorean * 2.2 },
+    { name: 'Season Record', pts: recordDiff * WEIGHTS.eliteRecord * 2.2 },
   ];
 
   return {
@@ -1101,6 +1192,7 @@ function predictGame(home, away) {
     homeName: home.name, awayName: away.name,
     homeFullName: home.fullName, awayFullName: away.fullName,
     homeRecord: `${home.w}-${home.l}`, awayRecord: `${away.w}-${away.l}`,
+    homeStreak: home.streakType + home.streak, awayStreak: away.streakType + away.streak,
     spread: +spread.toFixed(1),
     homeWinProb: +(homeWinProb * 100).toFixed(1),
     awayWinProb: +((1 - homeWinProb) * 100).toFixed(1),
@@ -1132,11 +1224,13 @@ function generateRankings(profiles) {
       l10: +(t.last10.winPct * 100).toFixed(0),
       l5: +(t.last5.winPct * 100).toFixed(0),
       score: +(
-        (t.netRating + 15) * 2 * 0.40 +
-        t.pythWinPct * 100 * 0.20 +
-        t.last10.winPct * 100 * 0.20 +
+        (t.netRating + 15) * 2 * 0.30 +
+        (t.elo - 1300) / 10 * 0.15 +
+        t.pythWinPct * 100 * 0.15 +
+        t.last10.winPct * 100 * 0.15 +
+        t.efgPct * 200 * 0.10 +
         t.winPct * 100 * 0.10 +
-        t.last5.winPct * 100 * 0.10
+        t.last5.winPct * 100 * 0.05
       ).toFixed(1),
     }))
     .sort((a, b) => b.score - a.score)
@@ -1458,8 +1552,8 @@ async function init() {
     }
 
     // Build profiles
-    const { base, advanced, last10, last5 } = allData.teamStats;
-    APP.profiles = buildProfiles(base, advanced, last10, last5);
+    const { base, advanced, last10, last5, fourFactors, oppStats } = allData.teamStats;
+    APP.profiles = buildProfiles(base, advanced, last10, last5, fourFactors, oppStats, allData.standings);
     APP.odds = oddsData;
 
     // Generate rankings
