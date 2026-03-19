@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBA Predict</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #0a0e17;
+  --bg-secondary: #111827;
+  --bg-card: #1a2235;
+  --bg-card-hover: #1f2b42;
+  --bg-accent: #ff6b2b;
+  --bg-accent-glow: rgba(255, 107, 43, 0.15);
+  --text-primary: #f0f2f5;
+  --text-secondary: #8b95a8;
+  --text-muted: #5a6478;
+  --border: #2a3448;
+  --border-light: #3a4558;
+  --green: #22c55e;
+  --green-bg: rgba(34, 197, 94, 0.12);
+  --red: #ef4444;
+  --red-bg: rgba(239, 68, 68, 0.12);
+  --yellow: #f59e0b;
+  --yellow-bg: rgba(245, 158, 11, 0.12);
+  --blue: #3b82f6;
+  --blue-bg: rgba(59, 130, 246, 0.12);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Source Sans 3', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ========== HEADER ========== */
+.header {
+  background: linear-gradient(180deg, #0f1520 0%, var(--bg-primary) 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+}
+
+.header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--bg-accent);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  box-shadow: 0 0 20px rgba(255, 107, 43, 0.3);
+}
+
+.logo h1 {
+  font-family: 'Oswald', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.logo h1 span { color: var(--bg-accent); }
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.status-dot {
+  width: 8px; height: 8px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ========== TABS ========== */
+.tabs {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 0;
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tab {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 0.75rem 1.25rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tab:hover { color: var(--text-secondary); }
+.tab.active {
+  color: var(--bg-accent);
+  border-bottom-color: var(--bg-accent);
+}
+
+/* ========== MAIN CONTENT ========== */
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ========== LOADING ========== */
+.loading {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--bg-accent);
+  border-radius: 50%;
+  margin: 0 auto 1rem;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ========== GAME CARDS ========== */
+.games-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.game-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.game-card:hover {
+  border-color: var(--border-light);
+  transform: translateY(-1px);
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-family: 'Oswald', sans-serif;
+}
+
+.game-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.confidence-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.conf-high { background: var(--green-bg); color: var(--green); }
+.conf-med { background: var(--yellow-bg); color: var(--yellow); }
+.conf-low { background: var(--red-bg); color: var(--red); }
+
+.game-matchup {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 1.25rem;
+  gap: 1rem;
+}
+
+.team-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.team-side.away { text-align: left; }
+.team-side.home { text-align: right; }
+
+.team-abbr {
+  font-family: 'Oswald', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  line-height: 1;
+}
+
+.team-name {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.team-record {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.vs-block {
+  text-align: center;
+  min-width: 100px;
+}
+
+.vs-label {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.proj-score {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.proj-total {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+/* Probability Bar */
+.prob-bar-container {
+  padding: 0 1.25rem 1rem;
+}
+
+.prob-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+}
+
+.prob-fill-away {
+  height: 100%;
+  transition: width 0.6s ease;
+  border-radius: 3px 0 0 3px;
+}
+
+.prob-fill-home {
+  height: 100%;
+  transition: width 0.6s ease;
+  border-radius: 0 3px 3px 0;
+}
+
+.prob-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.4rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.prob-away { text-align: left; }
+.prob-home { text-align: right; }
+
+/* Model vs Vegas */
+.comparison-section {
+  padding: 0 1.25rem 1rem;
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.comp-item {
+  text-align: center;
+  padding: 0.6rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.comp-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-family: 'Oswald', sans-serif;
+  margin-bottom: 0.25rem;
+}
+
+.comp-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.value-positive { color: var(--green); }
+.value-negative { color: var(--red); }
+.value-neutral { color: var(--text-secondary); }
+
+/* Factor Breakdown */
+.factors-toggle {
+  width: 100%;
+  padding: 0.6rem 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.factors-toggle:hover { background: rgba(255, 255, 255, 0.04); }
+
+.factors-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.factors-panel.open { max-height: 400px; }
+
+.factors-content {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.factor-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 60px;
+  align-items: center;
+  padding: 0.4rem 0;
+  font-size: 0.8rem;
+  gap: 0.75rem;
+}
+
+.factor-name {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.factor-bar-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  position: relative;
+}
+
+.factor-bar-fill {
+  position: absolute;
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.factor-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  text-align: right;
+  font-weight: 600;
+}
+
+/* ========== PICK BANNER ========== */
+.pick-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  background: var(--bg-accent-glow);
+  border-top: 1px solid rgba(255, 107, 43, 0.2);
+}
+
+.pick-label {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--bg-accent);
+}
+
+.pick-team {
+  font-family: 'Oswald', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--bg-accent);
+  letter-spacing: 1px;
+}
+
+.pick-edge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--green);
+}
+
+/* ========== VALUE PLAYS ========== */
+.value-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  background: var(--green-bg);
+  color: var(--green);
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* ========== POWER RANKINGS ========== */
+.rankings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.rankings-table th {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rankings-table th:hover { color: var(--text-secondary); }
+.rankings-table th.sorted { color: var(--bg-accent); }
+
+.rankings-table td {
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.rankings-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+.rank-num {
+  font-family: 'Oswald', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  width: 2rem;
+  text-align: center;
+}
+
+.rank-1 .rank-num, .rank-2 .rank-num, .rank-3 .rank-num { color: var(--bg-accent); }
+
+.rank-team {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.rank-record {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.rank-stat {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+}
+
+.stat-positive { color: var(--green); }
+.stat-negative { color: var(--red); }
+
+/* ========== O/U SECTION ========== */
+.ou-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.ou-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.ou-matchup {
+  font-family: 'Oswald', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.ou-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.ou-stat {
+  text-align: center;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.ou-stat-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-family: 'Oswald', sans-serif;
+}
+
+.ou-stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.ou-recommendation {
+  margin-top: 0.75rem;
+  padding: 0.6rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.ou-over { background: var(--green-bg); color: var(--green); }
+.ou-under { background: var(--red-bg); color: var(--red); }
+.ou-push { background: var(--yellow-bg); color: var(--yellow); }
+
+/* ========== PLAYER PROPS ========== */
+.props-info {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--text-muted);
+}
+
+.props-info h3 {
+  font-family: 'Oswald', sans-serif;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+/* ========== NO GAMES ========== */
+.no-games {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.no-games h3 {
+  font-family: 'Oswald', sans-serif;
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.no-games p { color: var(--text-muted); }
+
+/* ========== ERROR STATE ========== */
+.error-state {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: var(--red-bg);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 12px;
+}
+
+.error-state h3 {
+  font-family: 'Oswald', sans-serif;
+  color: var(--red);
+  margin-bottom: 0.5rem;
+}
+
+.retry-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1.5rem;
+  background: var(--bg-accent);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.retry-btn:hover { opacity: 0.9; }
+
+/* ========== FOOTER ========== */
+.footer {
+  max-width: 1200px;
+  margin: 2rem auto 0;
+  padding: 1.5rem;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.footer a { color: var(--bg-accent); text-decoration: none; }
+.footer a:hover { text-decoration: underline; }
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .header-inner { flex-direction: column; gap: 0.5rem; }
+  .logo h1 { font-size: 1.2rem; }
+  .tabs { padding: 0.5rem 1rem 0; gap: 0; }
+  .tab { padding: 0.6rem 0.75rem; font-size: 0.75rem; }
+  .main { padding: 1rem; }
+  .game-matchup { padding: 1rem; gap: 0.5rem; }
+  .team-abbr { font-size: 1.3rem; }
+  .vs-block { min-width: 70px; }
+  .comparison-grid { grid-template-columns: 1fr; }
+  .ou-grid { grid-template-columns: 1fr; }
+  .rankings-table { font-size: 0.75rem; }
+  .rankings-table th, .rankings-table td { padding: 0.5rem 0.3rem; }
+  .factor-row { grid-template-columns: 100px 1fr 50px; }
+  
+  .hide-mobile { display: none; }
+}
+
+/* ========== SCROLLBAR ========== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">🏀</div>
+      <h1>NBA <span>PREDICT</span></h1>
+    </div>
+    <div class="header-meta">
+      <div class="status-dot"></div>
+      <span id="lastUpdate">Loading...</span>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button class="tab active" data-tab="games">Today's Games</button>
+  <button class="tab" data-tab="rankings">Power Rankings</button>
+  <button class="tab" data-tab="overunder">Over / Under</button>
+  <button class="tab" data-tab="props">Player Props</button>
+</nav>
+
+<main class="main">
+  <!-- TODAY'S GAMES -->
+  <div class="tab-content active" id="tab-games">
+    <div id="gamesContainer" class="games-grid">
+      <div class="loading">
+        <div class="loading-spinner"></div>
+        <p>Loading today's matchups...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- POWER RANKINGS -->
+  <div class="tab-content" id="tab-rankings">
+    <div id="rankingsContainer">
+      <div class="loading">
+        <div class="loading-spinner"></div>
+        <p>Crunching the numbers...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVER/UNDER -->
+  <div class="tab-content" id="tab-overunder">
+    <div id="ouContainer">
+      <div class="loading">
+        <div class="loading-spinner"></div>
+        <p>Calculating totals...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAYER PROPS -->
+  <div class="tab-content" id="tab-props">
+    <div class="props-info">
+      <h3>PLAYER PROPS — COMING SOON</h3>
+      <p>Player-level predictions with matchup analysis,<br>usage rates, and prop line comparisons.</p>
+      <p style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+        Add your Odds API key in Vercel env vars to enable prop odds.
+      </p>
+    </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <p>NBA Predict v1.0 — Prediction model for entertainment purposes only. Not financial advice.</p>
+  <p style="margin-top: 0.25rem;">Data from NBA Stats & The Odds API</p>
+</footer>
+
+<script>
+// ============================================================
+// NBA PREDICT — CLIENT ENGINE
+// ============================================================
+
+const TEAM_MAP = {
+  1610612737:'ATL',1610612738:'BOS',1610612739:'CLE',1610612740:'NOP',
+  1610612741:'CHI',1610612742:'DAL',1610612743:'DEN',1610612744:'GSW',
+  1610612745:'HOU',1610612746:'LAC',1610612747:'LAL',1610612748:'MIA',
+  1610612749:'MIL',1610612750:'MIN',1610612751:'BKN',1610612752:'NYK',
+  1610612753:'ORL',1610612754:'IND',1610612755:'PHI',1610612756:'PHX',
+  1610612757:'POR',1610612758:'SAC',1610612759:'SAS',1610612760:'OKC',
+  1610612761:'TOR',1610612762:'UTA',1610612763:'MEM',1610612764:'WAS',
+  1610612765:'DET',1610612766:'CHA',
+};
+
+const TEAM_FULL = {
+  'ATL':'Atlanta Hawks','BOS':'Boston Celtics','CLE':'Cleveland Cavaliers',
+  'NOP':'New Orleans Pelicans','CHI':'Chicago Bulls','DAL':'Dallas Mavericks',
+  'DEN':'Denver Nuggets','GSW':'Golden State Warriors','HOU':'Houston Rockets',
+  'LAC':'LA Clippers','LAL':'Los Angeles Lakers','MIA':'Miami Heat',
+  'MIL':'Milwaukee Bucks','MIN':'Minnesota Timberwolves','BKN':'Brooklyn Nets',
+  'NYK':'New York Knicks','ORL':'Orlando Magic','IND':'Indiana Pacers',
+  'PHI':'Philadelphia 76ers','PHX':'Phoenix Suns','POR':'Portland Trail Blazers',
+  'SAC':'Sacramento Kings','SAS':'San Antonio Spurs','OKC':'Oklahoma City Thunder',
+  'TOR':'Toronto Raptors','UTA':'Utah Jazz','MEM':'Memphis Grizzlies',
+  'WAS':'Washington Wizards','DET':'Detroit Pistons','CHA':'Charlotte Hornets',
+};
+
+const TEAM_COLORS = {
+  'ATL':'#E03A3E','BOS':'#007A33','CLE':'#860038','NOP':'#0C2340',
+  'CHI':'#CE1141','DAL':'#00538C','DEN':'#0E2240','GSW':'#1D428A',
+  'HOU':'#CE1141','LAC':'#C8102E','LAL':'#552583','MIA':'#98002E',
+  'MIL':'#00471B','MIN':'#0C2340','BKN':'#000000','NYK':'#006BB6',
+  'ORL':'#0077C0','IND':'#002D62','PHI':'#006BB6','PHX':'#1D1160',
+  'POR':'#E03A3E','SAC':'#5A2D81','SAS':'#C4CED4','OKC':'#007AC1',
+  'TOR':'#CE1141','UTA':'#002B5C','MEM':'#5D76A9','WAS':'#002B5C',
+  'DET':'#C8102E','CHA':'#1D1160',
+};
+
+// ============================================================
+// PREDICTION ENGINE (CLIENT-SIDE)
+// ============================================================
+
+const HOME_COURT_EDGE = 2.8;
+const B2B_PENALTY = 3.5;
+const PYTH_EXP = 13.91;
+
+const WEIGHTS = {
+  netRating: 0.30, recentForm: 0.15, homeCourt: 0.10,
+  rest: 0.10, pythagorean: 0.15, momentum: 0.10, eliteRecord: 0.10,
+};
+
+function pointsToWinProb(ptDiff) {
+  return 1 / (1 + Math.pow(10, -ptDiff / 8.5));
+}
+
+function pythagoreanWins(pf, pa) {
+  const pfE = Math.pow(pf, PYTH_EXP);
+  const paE = Math.pow(pa, PYTH_EXP);
+  return pfE / (pfE + paE);
+}
+
+function buildProfiles(base, advanced, last10, last5) {
+  const profiles = {};
+  if (!base || !advanced) return profiles;
+
+  const advMap = {}; advanced.forEach(t => advMap[t.TEAM_ID] = t);
+  const l10Map = {}; if (last10) last10.forEach(t => l10Map[t.TEAM_ID] = t);
+  const l5Map = {}; if (last5) last5.forEach(t => l5Map[t.TEAM_ID] = t);
+
+  base.forEach(team => {
+    const id = team.TEAM_ID;
+    const abbr = team.TEAM_ABBREVIATION;
+    const adv = advMap[id] || {};
+    const l10 = l10Map[id] || {};
+    const l5 = l5Map[id] || {};
+    const gp = team.GP || 1;
+    const ppg = team.PTS || 110;
+    const netR = adv.NET_RATING || 0;
+    const oppPpg = ppg - netR;
+
+    profiles[abbr] = {
+      id, abbr,
+      name: (TEAM_FULL[abbr] || abbr).split(' ').pop(),
+      fullName: TEAM_FULL[abbr] || abbr,
+      gp, w: team.W || 0, l: team.L || 0,
+      winPct: (team.W || 0) / Math.max(gp, 1),
+      ppg, oppPpg,
+      ortg: adv.OFF_RATING || 110,
+      drtg: adv.DEF_RATING || 110,
+      netRating: netR,
+      pace: adv.PACE || 100,
+      pythWinPct: pythagoreanWins(ppg, oppPpg),
+      last10: {
+        winPct: l10.GP ? (l10.W / l10.GP) : ((team.W || 0) / Math.max(gp, 1)),
+        ppg: l10.PTS || ppg,
+      },
+      last5: {
+        winPct: l5.GP ? (l5.W / l5.GP) : ((team.W || 0) / Math.max(gp, 1)),
+        ppg: l5.PTS || ppg,
+      },
+    };
+  });
+  return profiles;
+}
+
+function predictGame(home, away) {
+  if (!home || !away) return null;
+
+  const netRatingPts = home.netRating - away.netRating;
+  const formDiff = (home.last10.winPct - away.last10.winPct) * 10;
+  const homePts = HOME_COURT_EDGE;
+  const restPts = 0; // default: no B2B data from scoreboard
+  const pythDiff = (home.pythWinPct - away.pythWinPct) * 10;
+  const momentumDiff = (home.last5.winPct - away.last5.winPct) * 8;
+  const eliteDiff = (home.winPct - away.winPct) * 6;
+
+  const rawSpread =
+    netRatingPts * 1.0 * WEIGHTS.netRating +
+    formDiff * 1.0 * WEIGHTS.recentForm +
+    homePts * 1.0 * WEIGHTS.homeCourt +
+    restPts * 1.0 * WEIGHTS.rest +
+    pythDiff * 1.0 * WEIGHTS.pythagorean +
+    momentumDiff * 1.0 * WEIGHTS.momentum +
+    eliteDiff * 1.0 * WEIGHTS.eliteRecord;
+
+  // Scale up — factors above are already weighted portions, 
+  // but we need a realistic spread range
+  const spread = Math.max(-20, Math.min(20, rawSpread * 2.5));
+  const homeWinProb = pointsToWinProb(spread);
+
+  const avgPace = (home.pace + away.pace) / 2;
+  const paceAdj = avgPace / 100;
+  const projHome = Math.round((home.ortg + (110 - away.drtg)) / 2 * paceAdj);
+  const projAway = Math.round((away.ortg + (110 - home.drtg)) / 2 * paceAdj);
+
+  const gpMin = Math.min(home.gp, away.gp);
+  const sampleConf = Math.min(gpMin / 30, 1);
+  const marginConf = Math.min(Math.abs(spread) / 12, 1);
+  const confidence = Math.round((sampleConf * 0.6 + marginConf * 0.4) * 100);
+
+  const factors = [
+    { name: 'Net Rating', pts: netRatingPts, w: WEIGHTS.netRating, hVal: home.netRating.toFixed(1), aVal: away.netRating.toFixed(1) },
+    { name: 'Form (L10)', pts: formDiff, w: WEIGHTS.recentForm, hVal: (home.last10.winPct*100).toFixed(0)+'%', aVal: (away.last10.winPct*100).toFixed(0)+'%' },
+    { name: 'Home Court', pts: homePts, w: WEIGHTS.homeCourt, hVal: '+2.8', aVal: '—' },
+    { name: 'Pythagorean', pts: pythDiff, w: WEIGHTS.pythagorean, hVal: (home.pythWinPct*100).toFixed(1)+'%', aVal: (away.pythWinPct*100).toFixed(1)+'%' },
+    { name: 'Momentum (L5)', pts: momentumDiff, w: WEIGHTS.momentum, hVal: (home.last5.winPct*100).toFixed(0)+'%', aVal: (away.last5.winPct*100).toFixed(0)+'%' },
+    { name: 'Season W%', pts: eliteDiff, w: WEIGHTS.eliteRecord, hVal: (home.winPct*100).toFixed(1)+'%', aVal: (away.winPct*100).toFixed(1)+'%' },
+  ];
+
+  return {
+    homeAbbr: home.abbr, awayAbbr: away.abbr,
+    homeName: home.name, awayName: away.name,
+    homeFullName: home.fullName, awayFullName: away.fullName,
+    homeRecord: `${home.w}-${home.l}`, awayRecord: `${away.w}-${away.l}`,
+    spread: +spread.toFixed(1),
+    homeWinProb: +(homeWinProb * 100).toFixed(1),
+    awayWinProb: +((1 - homeWinProb) * 100).toFixed(1),
+    projHome, projAway,
+    projTotal: projHome + projAway,
+    confidence,
+    factors,
+    pick: homeWinProb >= 0.5 ? home.abbr : away.abbr,
+    pickName: homeWinProb >= 0.5 ? home.fullName : away.fullName,
+  };
+}
+
+function americanToProb(odds) {
+  if (odds > 0) return 100 / (odds + 100);
+  return Math.abs(odds) / (Math.abs(odds) + 100);
+}
+
+// Power Rankings
+function generateRankings(profiles) {
+  return Object.values(profiles)
+    .map(t => ({
+      abbr: t.abbr, fullName: t.fullName, name: t.name,
+      record: `${t.w}-${t.l}`,
+      netRating: +t.netRating.toFixed(1),
+      ortg: +t.ortg.toFixed(1),
+      drtg: +t.drtg.toFixed(1),
+      pace: +t.pace.toFixed(1),
+      pythWinPct: +(t.pythWinPct * 100).toFixed(1),
+      l10: +(t.last10.winPct * 100).toFixed(0),
+      l5: +(t.last5.winPct * 100).toFixed(0),
+      score: +(
+        (t.netRating + 15) * 2 * 0.40 +
+        t.pythWinPct * 100 * 0.20 +
+        t.last10.winPct * 100 * 0.20 +
+        t.winPct * 100 * 0.10 +
+        t.last5.winPct * 100 * 0.10
+      ).toFixed(1),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .map((t, i) => ({ ...t, rank: i + 1 }));
+}
+
+// ============================================================
+// UI RENDERING
+// ============================================================
+
+let APP = { profiles: {}, predictions: [], odds: [], rankings: [] };
+
+function renderGameCard(pred, odds) {
+  const confClass = pred.confidence >= 70 ? 'conf-high' : pred.confidence >= 50 ? 'conf-med' : 'conf-low';
+  const awayColor = TEAM_COLORS[pred.awayAbbr] || '#666';
+  const homeColor = TEAM_COLORS[pred.homeAbbr] || '#666';
+
+  // Find matching odds
+  let vegasHTML = '';
+  let valueHTML = '';
+  let matchedOdds = null;
+
+  if (odds && odds.games) {
+    matchedOdds = odds.games.find(g => {
+      const hn = g.homeTeam.toLowerCase();
+      const an = g.awayTeam.toLowerCase();
+      return hn.includes(pred.homeName.toLowerCase()) || an.includes(pred.awayName.toLowerCase());
+    });
+  }
+
+  if (matchedOdds && matchedOdds.consensus && matchedOdds.consensus.h2h) {
+    const c = matchedOdds.consensus;
+    const vegasSpread = c.spreads ? Object.values(c.spreads)[0]?.spread : '—';
+    const vegasTotal = c.totals?.Over?.total || '—';
+    const homeKey = Object.keys(c.h2h).find(k => k.toLowerCase().includes(pred.homeName.toLowerCase()));
+    const awayKey = Object.keys(c.h2h).find(k => k.toLowerCase().includes(pred.awayName.toLowerCase()));
+    
+    const homeVegas = homeKey ? c.h2h[homeKey] : null;
+    const awayVegas = awayKey ? c.h2h[awayKey] : null;
+
+    if (homeVegas && awayVegas) {
+      const homeEdge = (pred.homeWinProb/100) - homeVegas.impliedProb;
+      const awayEdge = (pred.awayWinProb/100) - awayVegas.impliedProb;
+      const bestEdge = Math.max(homeEdge, awayEdge);
+      const edgeTeam = homeEdge > awayEdge ? pred.homeAbbr : pred.awayAbbr;
+
+      vegasHTML = `
+        <div class="comparison-section">
+          <div class="comparison-grid">
+            <div class="comp-item">
+              <div class="comp-label">Vegas Spread</div>
+              <div class="comp-value value-neutral">${vegasSpread}</div>
+            </div>
+            <div class="comp-item">
+              <div class="comp-label">Model Spread</div>
+              <div class="comp-value value-neutral">${pred.spread > 0 ? pred.awayAbbr+' '+pred.spread : pred.homeAbbr+' '+Math.abs(pred.spread)}</div>
+            </div>
+            <div class="comp-item">
+              <div class="comp-label">Vegas Total</div>
+              <div class="comp-value value-neutral">${vegasTotal}</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      if (bestEdge > 0.03) {
+        valueHTML = `
+          <div class="pick-banner">
+            <div>
+              <div class="pick-label">💎 VALUE PLAY</div>
+              <div class="pick-team">${edgeTeam}</div>
+            </div>
+            <div class="pick-edge">+${(bestEdge * 100).toFixed(1)}% edge</div>
+          </div>
+        `;
+      }
+    }
+  }
+
+  const factorsHTML = pred.factors.map(f => {
+    const pct = Math.min(Math.abs(f.pts) / 5 * 50 + 50, 100);
+    const color = f.pts > 0 ? 'var(--green)' : f.pts < 0 ? 'var(--red)' : 'var(--text-muted)';
+    const dir = f.pts >= 0 ? 'right' : 'left';
+    return `
+      <div class="factor-row">
+        <span class="factor-name">${f.name}</span>
+        <div class="factor-bar-track">
+          <div class="factor-bar-fill" style="width:${pct}%;background:${color};${dir === 'left' ? 'right:50%' : 'left:50%'}"></div>
+        </div>
+        <span class="factor-value" style="color:${color}">${f.pts > 0 ? '+' : ''}${f.pts.toFixed(1)}</span>
+      </div>
+    `;
+  }).join('');
+
+  const id = `factors-${pred.homeAbbr}-${pred.awayAbbr}`;
+
+  return `
+    <div class="game-card">
+      <div class="game-header">
+        <div class="game-status">
+          <span>${pred.awayAbbr} @ ${pred.homeAbbr}</span>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <span class="confidence-badge ${confClass}">${pred.confidence}% CONF</span>
+        </div>
+      </div>
+
+      <div class="game-matchup">
+        <div class="team-side away">
+          <div class="team-abbr" style="color:${awayColor}">${pred.awayAbbr}</div>
+          <div class="team-name">${pred.awayFullName}</div>
+          <div class="team-record">${pred.awayRecord}</div>
+        </div>
+        <div class="vs-block">
+          <div class="vs-label">Projected</div>
+          <div class="proj-score">${pred.projAway} — ${pred.projHome}</div>
+          <div class="proj-total">Total: ${pred.projTotal}</div>
+        </div>
+        <div class="team-side home">
+          <div class="team-abbr" style="color:${homeColor}">${pred.homeAbbr}</div>
+          <div class="team-name">${pred.homeFullName}</div>
+          <div class="team-record">${pred.homeRecord}</div>
+        </div>
+      </div>
+
+      <div class="prob-bar-container">
+        <div class="prob-bar">
+          <div class="prob-fill-away" style="width:${pred.awayWinProb}%;background:${awayColor}"></div>
+          <div class="prob-fill-home" style="width:${pred.homeWinProb}%;background:${homeColor}"></div>
+        </div>
+        <div class="prob-labels">
+          <span class="prob-away" style="color:${awayColor}">${pred.awayAbbr} ${pred.awayWinProb}%</span>
+          <span class="prob-home" style="color:${homeColor}">${pred.homeAbbr} ${pred.homeWinProb}%</span>
+        </div>
+      </div>
+
+      ${vegasHTML}
+
+      <button class="factors-toggle" onclick="toggleFactors('${id}')">
+        Factor Breakdown <span id="arrow-${id}">▼</span>
+      </button>
+      <div class="factors-panel" id="${id}">
+        <div class="factors-content">${factorsHTML}</div>
+      </div>
+
+      ${valueHTML || `
+        <div class="pick-banner">
+          <div>
+            <div class="pick-label">MODEL PICK</div>
+            <div class="pick-team">${pred.pick}</div>
+          </div>
+          <div class="pick-edge">${pred.pick === pred.homeAbbr ? pred.homeWinProb : pred.awayWinProb}%</div>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function toggleFactors(id) {
+  const panel = document.getElementById(id);
+  const arrow = document.getElementById('arrow-' + id);
+  panel.classList.toggle('open');
+  arrow.textContent = panel.classList.contains('open') ? '▲' : '▼';
+}
+
+function renderGames(predictions, odds) {
+  const container = document.getElementById('gamesContainer');
+  if (!predictions || predictions.length === 0) {
+    container.innerHTML = `
+      <div class="no-games">
+        <h3>NO GAMES TODAY</h3>
+        <p>Check back on game day for predictions.</p>
+      </div>
+    `;
+    return;
+  }
+  container.innerHTML = predictions.map(p => renderGameCard(p, odds)).join('');
+}
+
+function renderRankings(rankings) {
+  const container = document.getElementById('rankingsContainer');
+  if (!rankings || rankings.length === 0) {
+    container.innerHTML = '<div class="loading"><p>No ranking data available.</p></div>';
+    return;
+  }
+
+  const rows = rankings.map(t => `
+    <tr class="rank-${t.rank}">
+      <td class="rank-num">${t.rank}</td>
+      <td><span class="rank-team" style="color:${TEAM_COLORS[t.abbr] || '#ccc'}">${t.abbr}</span></td>
+      <td class="rank-record">${t.record}</td>
+      <td class="rank-stat ${t.netRating > 0 ? 'stat-positive' : 'stat-negative'}">${t.netRating > 0 ? '+' : ''}${t.netRating}</td>
+      <td class="rank-stat hide-mobile">${t.ortg}</td>
+      <td class="rank-stat hide-mobile">${t.drtg}</td>
+      <td class="rank-stat hide-mobile">${t.pace}</td>
+      <td class="rank-stat">${t.pythWinPct}%</td>
+      <td class="rank-stat hide-mobile">${t.l10}%</td>
+      <td class="rank-stat">${t.score}</td>
+    </tr>
+  `).join('');
+
+  container.innerHTML = `
+    <table class="rankings-table">
+      <thead>
+        <tr>
+          <th>#</th><th>TEAM</th><th>REC</th><th class="sorted">NET</th>
+          <th class="hide-mobile">ORTG</th><th class="hide-mobile">DRTG</th>
+          <th class="hide-mobile">PACE</th><th>PYTH</th>
+          <th class="hide-mobile">L10</th><th>SCORE</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function renderOU(predictions, odds) {
+  const container = document.getElementById('ouContainer');
+  if (!predictions || predictions.length === 0) {
+    container.innerHTML = `
+      <div class="no-games">
+        <h3>NO GAMES TODAY</h3>
+        <p>Over/Under projections appear on game days.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = predictions.map(pred => {
+    let vegasTotal = null;
+    if (odds && odds.games) {
+      const match = odds.games.find(g =>
+        g.homeTeam.toLowerCase().includes(pred.homeName.toLowerCase()) ||
+        g.awayTeam.toLowerCase().includes(pred.awayName.toLowerCase())
+      );
+      if (match && match.consensus && match.consensus.totals && match.consensus.totals.Over) {
+        vegasTotal = match.consensus.totals.Over.total;
+      }
+    }
+
+    const diff = vegasTotal ? pred.projTotal - vegasTotal : 0;
+    const recClass = diff > 2 ? 'ou-over' : diff < -2 ? 'ou-under' : 'ou-push';
+    const recText = diff > 2 ? `OVER ${vegasTotal} (+${diff.toFixed(1)})` : diff < -2 ? `UNDER ${vegasTotal} (${diff.toFixed(1)})` : vegasTotal ? 'LEAN PUSH' : '—';
+
+    return `
+      <div class="ou-card">
+        <div class="ou-header">
+          <span class="ou-matchup">${pred.awayAbbr} @ ${pred.homeAbbr}</span>
+          ${vegasTotal ? `<span class="value-tag">Vegas: ${vegasTotal}</span>` : ''}
+        </div>
+        <div class="ou-grid">
+          <div class="ou-stat">
+            <div class="ou-stat-label">Model Total</div>
+            <div class="ou-stat-value">${pred.projTotal}</div>
+          </div>
+          <div class="ou-stat">
+            <div class="ou-stat-label">${pred.awayAbbr} Proj</div>
+            <div class="ou-stat-value">${pred.projAway}</div>
+          </div>
+          <div class="ou-stat">
+            <div class="ou-stat-label">${pred.homeAbbr} Proj</div>
+            <div class="ou-stat-value">${pred.projHome}</div>
+          </div>
+        </div>
+        ${vegasTotal ? `<div class="ou-recommendation ${recClass}">${recText}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// TAB NAVIGATION
+// ============================================================
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ============================================================
+// DATA FETCHING & INIT
+// ============================================================
+
+async function fetchJSON(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function init() {
+  try {
+    // Fetch all data in parallel
+    const [allData, oddsData] = await Promise.all([
+      fetchJSON('/api/data?type=all').catch(e => {
+        console.warn('NBA data error:', e);
+        return null;
+      }),
+      fetchJSON('/api/odds').catch(e => {
+        console.warn('Odds error:', e);
+        return null;
+      }),
+    ]);
+
+    if (!allData || !allData.teamStats) {
+      document.getElementById('gamesContainer').innerHTML = `
+        <div class="error-state">
+          <h3>COULDN'T LOAD NBA DATA</h3>
+          <p>The NBA stats API may be temporarily unavailable. This sometimes happens outside of game hours.</p>
+          <button class="retry-btn" onclick="location.reload()">RETRY</button>
+        </div>
+      `;
+      return;
+    }
+
+    // Build profiles
+    const { base, advanced, last10, last5 } = allData.teamStats;
+    APP.profiles = buildProfiles(base, advanced, last10, last5);
+    APP.odds = oddsData;
+
+    // Generate rankings
+    APP.rankings = generateRankings(APP.profiles);
+    renderRankings(APP.rankings);
+
+    // Parse today's games from scoreboard
+    const sb = allData.scoreboard;
+    if (sb && sb.games && sb.games.length > 0) {
+      APP.predictions = sb.games.map(game => {
+        const homeId = game.HOME_TEAM_ID;
+        const awayId = game.VISITOR_TEAM_ID;
+        const homeAbbr = TEAM_MAP[homeId];
+        const awayAbbr = TEAM_MAP[awayId];
+        const home = APP.profiles[homeAbbr];
+        const away = APP.profiles[awayAbbr];
+        return predictGame(home, away);
+      }).filter(Boolean);
+    } else {
+      APP.predictions = [];
+    }
+
+    renderGames(APP.predictions, APP.odds);
+    renderOU(APP.predictions, APP.odds);
+
+    // Update timestamp
+    document.getElementById('lastUpdate').textContent =
+      `Updated ${new Date().toLocaleTimeString()} — ${Object.keys(APP.profiles).length} teams loaded`;
+
+  } catch (err) {
+    console.error('Init error:', err);
+    document.getElementById('gamesContainer').innerHTML = `
+      <div class="error-state">
+        <h3>SOMETHING WENT WRONG</h3>
+        <p>${err.message}</p>
+        <button class="retry-btn" onclick="location.reload()">RETRY</button>
+      </div>
+    `;
+  }
+}
+
+// Auto-refresh every 5 minutes
+init();
+setInterval(init, 5 * 60 * 1000);
+</script>
+</body>
+</html>
