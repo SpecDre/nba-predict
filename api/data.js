@@ -43,38 +43,13 @@ const TEAM_COLORS = {
   'DET': '#C8102E', 'CHA': '#1D1160',
 };
 
-const delay = ms => new Promise(r => setTimeout(r, ms));
-
-async function fetchNBA(endpoint, params = {}, retries = 2) {
+async function fetchNBA(endpoint, params = {}) {
   const url = new URL(`${NBA_BASE}/${endpoint}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const res = await fetch(url.toString(), { headers: HEADERS, timeout: 15000 });
-      if (res.status === 429 || res.status === 403) {
-        // Rate limited — wait and retry
-        if (attempt < retries) {
-          await delay(2000 * (attempt + 1));
-          continue;
-        }
-      }
-      if (!res.ok) throw new Error(`NBA API ${res.status}: ${res.statusText}`);
-      const json = await res.json();
-      // Check if NBA returned empty data (stealth rate limit)
-      if (json.resultSets && json.resultSets[0] && json.resultSets[0].rowSet.length === 0 && attempt < retries) {
-        await delay(1500 * (attempt + 1));
-        continue;
-      }
-      return json;
-    } catch (e) {
-      if (attempt < retries) {
-        await delay(2000 * (attempt + 1));
-        continue;
-      }
-      throw e;
-    }
-  }
+  const res = await fetch(url.toString(), { headers: HEADERS, timeout: 10000 });
+  if (!res.ok) throw new Error(`NBA API ${res.status}: ${res.statusText}`);
+  return res.json();
 }
 
 function parseNBAResponse(data, setIndex = 0) {
@@ -380,23 +355,13 @@ module.exports = async function handler(req, res) {
         result = await getPlayerStats(szn);
         break;
       case 'all': {
-        // Stagger calls to avoid NBA API rate limiting
-        // Batch 1
-        const [sb, teamBase] = await Promise.all([
+        const [sb, teamBase, teamAdv, t10, t5, stand] = await Promise.all([
           getScoreboard(),
           getTeamStats(szn),
-        ]);
-        await delay(500);
-        // Batch 2
-        const [teamAdv, stand] = await Promise.all([
           getTeamAdvanced(szn),
-          getStandings(szn),
-        ]);
-        await delay(500);
-        // Batch 3
-        const [t10, t5] = await Promise.all([
           getTeamStatsLastN(10, szn),
           getTeamStatsLastN(5, szn),
+          getStandings(szn),
         ]);
         result = {
           scoreboard: sb,
