@@ -355,25 +355,25 @@ module.exports = async function handler(req, res) {
         result = await getPlayerStats(szn);
         break;
       case 'all': {
-        // Batch 1: core data
-        const [sb, teamBase, teamAdv, stand] = await Promise.all([
+        const [sb, teamBase, teamAdv, t10, t5, stand] = await Promise.all([
           getScoreboard(),
           getTeamStats(szn),
           getTeamAdvanced(szn),
-          getStandings(szn),
-        ]);
-        // Small delay to avoid NBA API rate limit
-        await new Promise(r => setTimeout(r, 600));
-        // Batch 2: supplemental data
-        const [t10, t5, fourFactors, oppStats] = await Promise.all([
           getTeamStatsLastN(10, szn),
           getTeamStatsLastN(5, szn),
-          getTeamFourFactors(szn),
-          getTeamOpponentStats(szn),
+          getStandings(szn),
         ]);
         result = {
           scoreboard: sb,
-          teamStats: { base: teamBase, advanced: teamAdv, last10: t10, last5: t5, fourFactors, oppStats },
+          teamStats: { base: teamBase, advanced: teamAdv, last10: t10, last5: t5 },
+          standings: stand,
+          meta: { season: szn, timestamp: new Date().toISOString() },
+          teamMap: TEAM_MAP,
+          teamNames: TEAM_NAMES,
+          teamColors: TEAM_COLORS,
+        };
+        break;
+      }
           standings: stand,
           meta: { season: szn, timestamp: new Date().toISOString() },
           teamMap: TEAM_MAP,
