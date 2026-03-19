@@ -1463,8 +1463,9 @@ async function init() {
       APP.predictions = sb.games.map(game => {
         const homeId = game.HOME_TEAM_ID;
         const awayId = game.VISITOR_TEAM_ID;
-        const homeAbbr = TEAM_MAP[homeId];
-        const awayAbbr = TEAM_MAP[awayId];
+        // Handle both numeric IDs and string abbreviations from NBA API
+        const homeAbbr = (typeof homeId === 'string' && homeId.length <= 3) ? homeId : TEAM_MAP[homeId];
+        const awayAbbr = (typeof awayId === 'string' && awayId.length <= 3) ? awayId : TEAM_MAP[awayId];
         const home = APP.profiles[homeAbbr];
         const away = APP.profiles[awayAbbr];
         return predictGame(home, away);
