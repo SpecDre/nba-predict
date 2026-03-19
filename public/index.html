@@ -412,6 +412,7 @@ body {
   background: var(--border);
   border-radius: 2px;
   position: relative;
+  overflow: hidden;
 }
 
 .factor-bar-fill {
@@ -419,6 +420,7 @@ body {
   height: 100%;
   border-radius: 2px;
   transition: width 0.4s ease;
+  top: 0;
 }
 
 .factor-value {
@@ -1210,14 +1212,16 @@ function renderGameCard(pred, odds) {
   }
 
   const factorsHTML = pred.factors.map(f => {
-    const pct = Math.min(Math.abs(f.pts) / 5 * 50 + 50, 100);
+    const barWidth = Math.min(Math.abs(f.pts) / 8 * 45, 45);
     const color = f.pts > 0 ? 'var(--green)' : f.pts < 0 ? 'var(--red)' : 'var(--text-muted)';
-    const dir = f.pts >= 0 ? 'right' : 'left';
+    const barStyle = f.pts >= 0
+      ? `left:50%;width:${barWidth}%`
+      : `right:50%;width:${barWidth}%`;
     return `
       <div class="factor-row">
         <span class="factor-name">${f.name}</span>
         <div class="factor-bar-track">
-          <div class="factor-bar-fill" style="width:${pct}%;background:${color};${dir === 'left' ? 'right:50%' : 'left:50%'}"></div>
+          <div class="factor-bar-fill" style="${barStyle};background:${color}"></div>
         </div>
         <span class="factor-value" style="color:${color}">${f.pts > 0 ? '+' : ''}${f.pts.toFixed(1)}</span>
       </div>
