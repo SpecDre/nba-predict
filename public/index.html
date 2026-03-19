@@ -8,25 +8,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg-primary: #141b2d;
-  --bg-secondary: #1a2340;
-  --bg-card: #1e2a45;
-  --bg-card-hover: #253352;
-  --bg-accent: #ff6b2b;
-  --bg-accent-glow: rgba(255, 107, 43, 0.18);
-  --text-primary: #f0f2f5;
-  --text-secondary: #9ba8c0;
-  --text-muted: #6b7a94;
-  --border: #2e3f5c;
-  --border-light: #3d5070;
-  --green: #22c55e;
-  --green-bg: rgba(34, 197, 94, 0.15);
-  --red: #ef4444;
-  --red-bg: rgba(239, 68, 68, 0.15);
-  --yellow: #f59e0b;
-  --yellow-bg: rgba(245, 158, 11, 0.15);
-  --blue: #3b82f6;
-  --blue-bg: rgba(59, 130, 246, 0.15);
+  --bg-primary: #e8e4de;
+  --bg-secondary: #ddd8d0;
+  --bg-card: #f5f1eb;
+  --bg-card-hover: #efe9e1;
+  --bg-accent: #d85a20;
+  --bg-accent-glow: rgba(216, 90, 32, 0.12);
+  --text-primary: #2c2a26;
+  --text-secondary: #5c5850;
+  --text-muted: #7a7468;
+  --border: #d1cbc1;
+  --border-light: #c2bab0;
+  --green: #1a8a45;
+  --green-bg: rgba(26, 138, 69, 0.10);
+  --red: #c93030;
+  --red-bg: rgba(201, 48, 48, 0.10);
+  --yellow: #b07d0a;
+  --yellow-bg: rgba(176, 125, 10, 0.10);
+  --blue: #2563b0;
+  --blue-bg: rgba(37, 99, 176, 0.10);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -41,7 +41,7 @@ body {
 
 /* ========== HEADER ========== */
 .header {
-  background: linear-gradient(180deg, #192242 0%, var(--bg-primary) 100%);
+  background: linear-gradient(180deg, #ddd8cf 0%, var(--bg-primary) 100%);
   border-bottom: 1px solid var(--border);
   padding: 1rem 1.5rem;
   position: sticky;
@@ -74,7 +74,7 @@ body {
   justify-content: center;
   font-size: 20px;
   font-weight: 700;
-  box-shadow: 0 0 20px rgba(255, 107, 43, 0.3);
+  box-shadow: 0 2px 8px rgba(216, 90, 32, 0.25);
 }
 
 .logo h1 {
@@ -193,7 +193,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1.25rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(0, 0, 0, 0.03);
   border-bottom: 1px solid var(--border);
   font-size: 0.75rem;
   color: var(--text-muted);
@@ -334,7 +334,7 @@ body {
 .comp-item {
   text-align: center;
   padding: 0.6rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(0, 0, 0, 0.03);
   border-radius: 6px;
   border: 1px solid var(--border);
 }
@@ -362,7 +362,7 @@ body {
 .factors-toggle {
   width: 100%;
   padding: 0.6rem 1.25rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(0, 0, 0, 0.03);
   border: none;
   border-top: 1px solid var(--border);
   color: var(--text-muted);
@@ -378,7 +378,7 @@ body {
   gap: 0.5rem;
 }
 
-.factors-toggle:hover { background: rgba(255, 255, 255, 0.04); }
+.factors-toggle:hover { background: rgba(0, 0, 0, 0.05); }
 
 .factors-panel {
   max-height: 0;
@@ -437,7 +437,7 @@ body {
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
   background: var(--bg-accent-glow);
-  border-top: 1px solid rgba(255, 107, 43, 0.2);
+  border-top: 1px solid rgba(216, 90, 32, 0.25);
 }
 
 .pick-label {
@@ -507,7 +507,7 @@ body {
   white-space: nowrap;
 }
 
-.rankings-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+.rankings-table tr:hover td { background: rgba(0, 0, 0, 0.03); }
 
 .rank-num {
   font-family: 'Oswald', sans-serif;
@@ -573,7 +573,7 @@ body {
 .ou-stat {
   text-align: center;
   padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(0, 0, 0, 0.03);
   border-radius: 8px;
   border: 1px solid var(--border);
 }
