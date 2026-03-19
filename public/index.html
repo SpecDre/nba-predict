@@ -1074,9 +1074,13 @@ function predictGame(home, away) {
 
   const avgPace = (home.pace + away.pace) / 2;
   const paceAdj = avgPace / 100;
-  // Project scores: average team's PPG with what opponent allows, pace-adjusted
-  const projHome = Math.round((home.ppg + away.oppPpg) / 2 * paceAdj);
-  const projAway = Math.round((away.ppg + home.oppPpg) / 2 * paceAdj);
+  // Base scores from PPG vs opponent allowed, pace-adjusted
+  const baseHome = (home.ppg + away.oppPpg) / 2 * paceAdj;
+  const baseAway = (away.ppg + home.oppPpg) / 2 * paceAdj;
+  // Apply spread so projected scores align with the pick
+  const baseAvg = (baseHome + baseAway) / 2;
+  const projHome = Math.round(baseAvg + spread / 2);
+  const projAway = Math.round(baseAvg - spread / 2);
 
   const gpMin = Math.min(home.gp, away.gp);
   const sampleConf = Math.min(gpMin / 30, 1);
@@ -1238,7 +1242,7 @@ function renderGameCard(pred, odds) {
           <span>${pred.awayAbbr} @ ${pred.homeAbbr}</span>
         </div>
         <div style="display:flex;gap:0.5rem;align-items:center">
-          <span class="confidence-badge ${confClass}">${pred.confidence}% CONF</span>
+          <span class="confidence-badge ${confClass}">${pred.confidence}% CONFIDENCE</span>
         </div>
       </div>
 
