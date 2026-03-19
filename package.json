@@ -1,0 +1,11 @@
+{
+  "name": "nba-predict",
+  "version": "1.0.0",
+  "description": "NBA Prediction Engine - Game winners, player props, O/U, playoffs",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  }
+}
