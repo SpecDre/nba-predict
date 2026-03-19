@@ -150,6 +150,7 @@ main { padding: 24px 0 60px; }
 .confidence-high { background: #e8f5e9; color: var(--win-green); }
 .confidence-med { background: #fff8e1; color: #b8860b; }
 .confidence-low { background: var(--sand-100); color: var(--sand-600); }
+.confidence-toss-up { background: #fce4ec; color: #c44; }
 
 .pick-tag {
   font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 4px;
@@ -321,36 +322,36 @@ footer {
 // Net ratings, records, and Four Factors from season data
 
 const TEAMS = {
-  OKC: { name: "Thunder", city: "Oklahoma City", conf: "West", w: 55, l: 15, elo: 1758, netRtg: 9.8, offRtg: 119.8, defRtg: 110.0, efg: 0.565, tov: 0.120, oreb: 0.282, ftRate: 0.272, pace: 100.8, ppg: 120.7, papg: 110.9, streak: "W4", last10: "8-2" },
-  SAS: { name: "Spurs", city: "San Antonio", conf: "West", w: 51, l: 18, elo: 1709, netRtg: 7.5, offRtg: 117.2, defRtg: 109.7, efg: 0.554, tov: 0.124, oreb: 0.278, ftRate: 0.280, pace: 100.2, ppg: 117.4, papg: 109.9, streak: "W3", last10: "8-2" },
-  DET: { name: "Pistons", city: "Detroit", conf: "East", w: 49, l: 19, elo: 1690, netRtg: 6.8, offRtg: 114.8, defRtg: 108.0, efg: 0.542, tov: 0.122, oreb: 0.292, ftRate: 0.288, pace: 98.6, ppg: 113.2, papg: 106.4, streak: "W5", last10: "9-1" },
-  BOS: { name: "Celtics", city: "Boston", conf: "East", w: 46, l: 23, elo: 1641, netRtg: 5.2, offRtg: 121.0, defRtg: 115.8, efg: 0.572, tov: 0.132, oreb: 0.248, ftRate: 0.256, pace: 100.5, ppg: 121.6, papg: 116.4, streak: "W2", last10: "7-3" },
-  NYK: { name: "Knicks", city: "New York", conf: "East", w: 45, l: 25, elo: 1620, netRtg: 4.5, offRtg: 117.6, defRtg: 113.1, efg: 0.552, tov: 0.129, oreb: 0.262, ftRate: 0.276, pace: 99.0, ppg: 116.4, papg: 111.9, streak: "W1", last10: "7-3" },
-  LAL: { name: "Lakers", city: "Los Angeles", conf: "West", w: 44, l: 25, elo: 1616, netRtg: 4.2, offRtg: 116.4, defRtg: 112.2, efg: 0.548, tov: 0.130, oreb: 0.264, ftRate: 0.274, pace: 100.4, ppg: 116.8, papg: 112.6, streak: "L1", last10: "6-4" },
-  MIN: { name: "Timberwolves", city: "Minnesota", conf: "West", w: 43, l: 27, elo: 1596, netRtg: 3.6, offRtg: 114.2, defRtg: 110.6, efg: 0.542, tov: 0.124, oreb: 0.270, ftRate: 0.272, pace: 98.8, ppg: 112.8, papg: 109.2, streak: "W3", last10: "7-3" },
-  CLE: { name: "Cavaliers", city: "Cleveland", conf: "East", w: 42, l: 27, elo: 1591, netRtg: 3.4, offRtg: 116.8, defRtg: 113.4, efg: 0.556, tov: 0.128, oreb: 0.268, ftRate: 0.266, pace: 99.2, ppg: 115.8, papg: 112.4, streak: "W2", last10: "6-4" },
-  DEN: { name: "Nuggets", city: "Denver", conf: "West", w: 42, l: 28, elo: 1584, netRtg: 3.0, offRtg: 116.8, defRtg: 113.8, efg: 0.554, tov: 0.130, oreb: 0.256, ftRate: 0.264, pace: 99.4, ppg: 116.1, papg: 113.1, streak: "W1", last10: "6-4" },
-  HOU: { name: "Rockets", city: "Houston", conf: "West", w: 41, l: 27, elo: 1587, netRtg: 3.2, offRtg: 114.6, defRtg: 111.4, efg: 0.540, tov: 0.128, oreb: 0.290, ftRate: 0.282, pace: 99.8, ppg: 114.4, papg: 111.2, streak: "L2", last10: "5-5" },
-  TOR: { name: "Raptors", city: "Toronto", conf: "East", w: 39, l: 29, elo: 1563, netRtg: 2.0, offRtg: 113.6, defRtg: 111.6, efg: 0.538, tov: 0.128, oreb: 0.266, ftRate: 0.270, pace: 99.6, ppg: 113.1, papg: 111.1, streak: "W2", last10: "6-4" },
-  PHX: { name: "Suns", city: "Phoenix", conf: "West", w: 39, l: 30, elo: 1556, netRtg: 1.8, offRtg: 117.0, defRtg: 115.2, efg: 0.558, tov: 0.134, oreb: 0.252, ftRate: 0.260, pace: 100.6, ppg: 117.7, papg: 115.9, streak: "L2", last10: "5-5" },
-  ORL: { name: "Magic", city: "Orlando", conf: "East", w: 38, l: 30, elo: 1551, netRtg: 1.5, offRtg: 111.2, defRtg: 109.7, efg: 0.530, tov: 0.124, oreb: 0.284, ftRate: 0.286, pace: 98.2, ppg: 109.2, papg: 107.7, streak: "L1", last10: "5-5" },
-  ATL: { name: "Hawks", city: "Atlanta", conf: "East", w: 38, l: 31, elo: 1545, netRtg: 1.2, offRtg: 115.4, defRtg: 114.2, efg: 0.546, tov: 0.132, oreb: 0.256, ftRate: 0.268, pace: 100.4, ppg: 115.8, papg: 114.6, streak: "W2", last10: "7-3" },
-  MIA: { name: "Heat", city: "Miami", conf: "East", w: 38, l: 31, elo: 1545, netRtg: 1.2, offRtg: 112.8, defRtg: 111.6, efg: 0.534, tov: 0.122, oreb: 0.272, ftRate: 0.278, pace: 97.8, ppg: 110.3, papg: 109.1, streak: "L1", last10: "5-5" },
-  PHI: { name: "76ers", city: "Philadelphia", conf: "East", w: 37, l: 32, elo: 1533, netRtg: 0.8, offRtg: 113.8, defRtg: 113.0, efg: 0.538, tov: 0.130, oreb: 0.260, ftRate: 0.278, pace: 98.8, ppg: 112.4, papg: 111.6, streak: "L2", last10: "4-6" },
-  CHO: { name: "Hornets", city: "Charlotte", conf: "East", w: 35, l: 34, elo: 1511, netRtg: 0.2, offRtg: 116.0, defRtg: 115.8, efg: 0.548, tov: 0.132, oreb: 0.258, ftRate: 0.264, pace: 101.4, ppg: 117.6, papg: 117.4, streak: "L1", last10: "5-5" },
-  POR: { name: "Trail Blazers", city: "Portland", conf: "West", w: 34, l: 36, elo: 1494, netRtg: -0.5, offRtg: 112.6, defRtg: 113.1, efg: 0.536, tov: 0.135, oreb: 0.262, ftRate: 0.270, pace: 100.2, ppg: 112.8, papg: 113.3, streak: "W1", last10: "5-5" },
-  LAC: { name: "Clippers", city: "Los Angeles", conf: "West", w: 34, l: 35, elo: 1499, netRtg: -0.2, offRtg: 112.0, defRtg: 112.2, efg: 0.532, tov: 0.128, oreb: 0.258, ftRate: 0.266, pace: 99.0, ppg: 110.9, papg: 111.1, streak: "L3", last10: "3-7" },
-  GSW: { name: "Warriors", city: "Golden State", conf: "West", w: 33, l: 36, elo: 1488, netRtg: -0.8, offRtg: 114.2, defRtg: 115.0, efg: 0.548, tov: 0.133, oreb: 0.250, ftRate: 0.258, pace: 100.8, ppg: 115.1, papg: 115.9, streak: "L1", last10: "4-6" },
-  MIL: { name: "Bucks", city: "Milwaukee", conf: "East", w: 28, l: 40, elo: 1435, netRtg: -2.8, offRtg: 113.4, defRtg: 116.2, efg: 0.540, tov: 0.134, oreb: 0.264, ftRate: 0.268, pace: 100.0, ppg: 113.4, papg: 116.2, streak: "L2", last10: "4-6" },
-  CHI: { name: "Bulls", city: "Chicago", conf: "East", w: 28, l: 41, elo: 1430, netRtg: -3.0, offRtg: 111.2, defRtg: 114.2, efg: 0.528, tov: 0.136, oreb: 0.260, ftRate: 0.270, pace: 99.8, ppg: 111.0, papg: 114.0, streak: "L1", last10: "4-6" },
-  MEM: { name: "Grizzlies", city: "Memphis", conf: "West", w: 24, l: 44, elo: 1387, netRtg: -4.8, offRtg: 112.0, defRtg: 116.8, efg: 0.532, tov: 0.138, oreb: 0.270, ftRate: 0.280, pace: 101.2, ppg: 113.3, papg: 118.1, streak: "W1", last10: "4-6" },
-  NOP: { name: "Pelicans", city: "New Orleans", conf: "West", w: 24, l: 46, elo: 1378, netRtg: -5.4, offRtg: 110.4, defRtg: 115.8, efg: 0.524, tov: 0.140, oreb: 0.262, ftRate: 0.268, pace: 100.0, ppg: 110.4, papg: 115.8, streak: "L1", last10: "4-6" },
-  DAL: { name: "Mavericks", city: "Dallas", conf: "West", w: 23, l: 47, elo: 1365, netRtg: -5.8, offRtg: 112.2, defRtg: 118.0, efg: 0.536, tov: 0.138, oreb: 0.250, ftRate: 0.258, pace: 99.6, ppg: 111.7, papg: 117.5, streak: "L2", last10: "3-7" },
-  UTA: { name: "Jazz", city: "Utah", conf: "West", w: 20, l: 49, elo: 1330, netRtg: -7.2, offRtg: 108.6, defRtg: 115.8, efg: 0.518, tov: 0.142, oreb: 0.256, ftRate: 0.262, pace: 99.8, ppg: 108.4, papg: 115.6, streak: "L4", last10: "2-8" },
-  SAC: { name: "Kings", city: "Sacramento", conf: "West", w: 18, l: 52, elo: 1298, netRtg: -8.2, offRtg: 109.4, defRtg: 117.6, efg: 0.522, tov: 0.140, oreb: 0.252, ftRate: 0.260, pace: 101.0, ppg: 110.5, papg: 118.7, streak: "L5", last10: "2-8" },
-  BKN: { name: "Nets", city: "Brooklyn", conf: "East", w: 17, l: 52, elo: 1286, netRtg: -8.6, offRtg: 108.8, defRtg: 117.4, efg: 0.518, tov: 0.140, oreb: 0.250, ftRate: 0.258, pace: 99.4, ppg: 108.1, papg: 116.7, streak: "L3", last10: "2-8" },
-  WAS: { name: "Wizards", city: "Washington", conf: "East", w: 16, l: 52, elo: 1275, netRtg: -9.2, offRtg: 107.6, defRtg: 116.8, efg: 0.512, tov: 0.144, oreb: 0.254, ftRate: 0.258, pace: 100.6, ppg: 108.2, papg: 117.4, streak: "L4", last10: "1-9" },
-  IND: { name: "Pacers", city: "Indiana", conf: "East", w: 15, l: 55, elo: 1251, netRtg: -10.4, offRtg: 110.8, defRtg: 121.2, efg: 0.530, tov: 0.142, oreb: 0.254, ftRate: 0.260, pace: 102.4, ppg: 113.4, papg: 123.8, streak: "L6", last10: "1-9" },
+  OKC: { name: "Thunder", city: "Oklahoma City", conf: "West", w: 55, l: 15, homeW: 30, homeL: 5, awayW: 25, awayL: 10, elo: 1758, netRtg: 9.8, offRtg: 119.8, defRtg: 110.0, efg: 0.565, tov: 0.120, oreb: 0.282, ftRate: 0.272, pace: 100.8, ppg: 120.7, papg: 110.9, streak: "W4", last10: "8-2" },
+  SAS: { name: "Spurs", city: "San Antonio", conf: "West", w: 51, l: 18, homeW: 29, homeL: 6, awayW: 22, awayL: 12, elo: 1709, netRtg: 7.5, offRtg: 117.2, defRtg: 109.7, efg: 0.554, tov: 0.124, oreb: 0.278, ftRate: 0.280, pace: 100.2, ppg: 117.4, papg: 109.9, streak: "W3", last10: "8-2" },
+  DET: { name: "Pistons", city: "Detroit", conf: "East", w: 49, l: 19, homeW: 28, homeL: 6, awayW: 21, awayL: 13, elo: 1690, netRtg: 6.8, offRtg: 114.8, defRtg: 108.0, efg: 0.542, tov: 0.122, oreb: 0.292, ftRate: 0.288, pace: 98.6, ppg: 113.2, papg: 106.4, streak: "W5", last10: "9-1" },
+  BOS: { name: "Celtics", city: "Boston", conf: "East", w: 46, l: 23, homeW: 26, homeL: 8, awayW: 20, awayL: 15, elo: 1641, netRtg: 5.2, offRtg: 121.0, defRtg: 115.8, efg: 0.572, tov: 0.132, oreb: 0.248, ftRate: 0.256, pace: 100.5, ppg: 121.6, papg: 116.4, streak: "W2", last10: "7-3" },
+  NYK: { name: "Knicks", city: "New York", conf: "East", w: 45, l: 25, homeW: 26, homeL: 9, awayW: 19, awayL: 16, elo: 1620, netRtg: 4.5, offRtg: 117.6, defRtg: 113.1, efg: 0.552, tov: 0.129, oreb: 0.262, ftRate: 0.276, pace: 99.0, ppg: 116.4, papg: 111.9, streak: "W1", last10: "7-3" },
+  LAL: { name: "Lakers", city: "Los Angeles", conf: "West", w: 44, l: 25, homeW: 25, homeL: 10, awayW: 19, awayL: 15, elo: 1616, netRtg: 4.2, offRtg: 116.4, defRtg: 112.2, efg: 0.548, tov: 0.130, oreb: 0.264, ftRate: 0.274, pace: 100.4, ppg: 116.8, papg: 112.6, streak: "L1", last10: "6-4" },
+  MIN: { name: "Timberwolves", city: "Minnesota", conf: "West", w: 43, l: 27, homeW: 25, homeL: 10, awayW: 18, awayL: 17, elo: 1596, netRtg: 3.6, offRtg: 114.2, defRtg: 110.6, efg: 0.542, tov: 0.124, oreb: 0.270, ftRate: 0.272, pace: 98.8, ppg: 112.8, papg: 109.2, streak: "W3", last10: "7-3" },
+  CLE: { name: "Cavaliers", city: "Cleveland", conf: "East", w: 42, l: 27, homeW: 24, homeL: 11, awayW: 18, awayL: 16, elo: 1591, netRtg: 3.4, offRtg: 116.8, defRtg: 113.4, efg: 0.556, tov: 0.128, oreb: 0.268, ftRate: 0.266, pace: 99.2, ppg: 115.8, papg: 112.4, streak: "W2", last10: "6-4" },
+  DEN: { name: "Nuggets", city: "Denver", conf: "West", w: 42, l: 28, homeW: 26, homeL: 9, awayW: 16, awayL: 19, elo: 1584, netRtg: 3.0, offRtg: 116.8, defRtg: 113.8, efg: 0.554, tov: 0.130, oreb: 0.256, ftRate: 0.264, pace: 99.4, ppg: 116.1, papg: 113.1, streak: "W1", last10: "6-4" },
+  HOU: { name: "Rockets", city: "Houston", conf: "West", w: 41, l: 27, homeW: 24, homeL: 10, awayW: 17, awayL: 17, elo: 1587, netRtg: 3.2, offRtg: 114.6, defRtg: 111.4, efg: 0.540, tov: 0.128, oreb: 0.290, ftRate: 0.282, pace: 99.8, ppg: 114.4, papg: 111.2, streak: "L2", last10: "5-5" },
+  TOR: { name: "Raptors", city: "Toronto", conf: "East", w: 39, l: 29, homeW: 22, homeL: 12, awayW: 17, awayL: 17, elo: 1563, netRtg: 2.0, offRtg: 113.6, defRtg: 111.6, efg: 0.538, tov: 0.128, oreb: 0.266, ftRate: 0.270, pace: 99.6, ppg: 113.1, papg: 111.1, streak: "W2", last10: "6-4" },
+  PHX: { name: "Suns", city: "Phoenix", conf: "West", w: 39, l: 30, homeW: 22, homeL: 13, awayW: 17, awayL: 17, elo: 1556, netRtg: 1.8, offRtg: 117.0, defRtg: 115.2, efg: 0.558, tov: 0.134, oreb: 0.252, ftRate: 0.260, pace: 100.6, ppg: 117.7, papg: 115.9, streak: "L2", last10: "5-5" },
+  ORL: { name: "Magic", city: "Orlando", conf: "East", w: 38, l: 30, homeW: 22, homeL: 12, awayW: 16, awayL: 18, elo: 1551, netRtg: 1.5, offRtg: 111.2, defRtg: 109.7, efg: 0.530, tov: 0.124, oreb: 0.284, ftRate: 0.286, pace: 98.2, ppg: 109.2, papg: 107.7, streak: "L1", last10: "5-5" },
+  ATL: { name: "Hawks", city: "Atlanta", conf: "East", w: 38, l: 31, homeW: 21, homeL: 14, awayW: 17, awayL: 17, elo: 1545, netRtg: 1.2, offRtg: 115.4, defRtg: 114.2, efg: 0.546, tov: 0.132, oreb: 0.256, ftRate: 0.268, pace: 100.4, ppg: 115.8, papg: 114.6, streak: "W2", last10: "7-3" },
+  MIA: { name: "Heat", city: "Miami", conf: "East", w: 38, l: 31, homeW: 21, homeL: 14, awayW: 17, awayL: 17, elo: 1545, netRtg: 1.2, offRtg: 112.8, defRtg: 111.6, efg: 0.534, tov: 0.122, oreb: 0.272, ftRate: 0.278, pace: 97.8, ppg: 110.3, papg: 109.1, streak: "L1", last10: "5-5" },
+  PHI: { name: "76ers", city: "Philadelphia", conf: "East", w: 37, l: 32, homeW: 21, homeL: 14, awayW: 16, awayL: 18, elo: 1533, netRtg: 0.8, offRtg: 113.8, defRtg: 113.0, efg: 0.538, tov: 0.130, oreb: 0.260, ftRate: 0.278, pace: 98.8, ppg: 112.4, papg: 111.6, streak: "L2", last10: "4-6" },
+  CHO: { name: "Hornets", city: "Charlotte", conf: "East", w: 35, l: 34, homeW: 20, homeL: 15, awayW: 15, awayL: 19, elo: 1511, netRtg: 0.2, offRtg: 116.0, defRtg: 115.8, efg: 0.548, tov: 0.132, oreb: 0.258, ftRate: 0.264, pace: 101.4, ppg: 117.6, papg: 117.4, streak: "L1", last10: "5-5" },
+  POR: { name: "Trail Blazers", city: "Portland", conf: "West", w: 34, l: 36, homeW: 20, homeL: 15, awayW: 14, awayL: 21, elo: 1494, netRtg: -0.5, offRtg: 112.6, defRtg: 113.1, efg: 0.536, tov: 0.135, oreb: 0.262, ftRate: 0.270, pace: 100.2, ppg: 112.8, papg: 113.3, streak: "W1", last10: "5-5" },
+  LAC: { name: "Clippers", city: "Los Angeles", conf: "West", w: 34, l: 35, homeW: 19, homeL: 16, awayW: 15, awayL: 19, elo: 1499, netRtg: -0.2, offRtg: 112.0, defRtg: 112.2, efg: 0.532, tov: 0.128, oreb: 0.258, ftRate: 0.266, pace: 99.0, ppg: 110.9, papg: 111.1, streak: "L3", last10: "3-7" },
+  GSW: { name: "Warriors", city: "Golden State", conf: "West", w: 33, l: 36, homeW: 19, homeL: 16, awayW: 14, awayL: 20, elo: 1488, netRtg: -0.8, offRtg: 114.2, defRtg: 115.0, efg: 0.548, tov: 0.133, oreb: 0.250, ftRate: 0.258, pace: 100.8, ppg: 115.1, papg: 115.9, streak: "L1", last10: "4-6" },
+  MIL: { name: "Bucks", city: "Milwaukee", conf: "East", w: 28, l: 40, homeW: 16, homeL: 18, awayW: 12, awayL: 22, elo: 1435, netRtg: -2.8, offRtg: 113.4, defRtg: 116.2, efg: 0.540, tov: 0.134, oreb: 0.264, ftRate: 0.268, pace: 100.0, ppg: 113.4, papg: 116.2, streak: "L2", last10: "4-6" },
+  CHI: { name: "Bulls", city: "Chicago", conf: "East", w: 28, l: 41, homeW: 17, homeL: 18, awayW: 11, awayL: 23, elo: 1430, netRtg: -3.0, offRtg: 111.2, defRtg: 114.2, efg: 0.528, tov: 0.136, oreb: 0.260, ftRate: 0.270, pace: 99.8, ppg: 111.0, papg: 114.0, streak: "L1", last10: "4-6" },
+  MEM: { name: "Grizzlies", city: "Memphis", conf: "West", w: 24, l: 44, homeW: 15, homeL: 20, awayW: 9, awayL: 24, elo: 1387, netRtg: -4.8, offRtg: 112.0, defRtg: 116.8, efg: 0.532, tov: 0.138, oreb: 0.270, ftRate: 0.280, pace: 101.2, ppg: 113.3, papg: 118.1, streak: "W1", last10: "4-6" },
+  NOP: { name: "Pelicans", city: "New Orleans", conf: "West", w: 24, l: 46, homeW: 15, homeL: 20, awayW: 9, awayL: 26, elo: 1378, netRtg: -5.4, offRtg: 110.4, defRtg: 115.8, efg: 0.524, tov: 0.140, oreb: 0.262, ftRate: 0.268, pace: 100.0, ppg: 110.4, papg: 115.8, streak: "L1", last10: "4-6" },
+  DAL: { name: "Mavericks", city: "Dallas", conf: "West", w: 23, l: 47, homeW: 14, homeL: 21, awayW: 9, awayL: 26, elo: 1365, netRtg: -5.8, offRtg: 112.2, defRtg: 118.0, efg: 0.536, tov: 0.138, oreb: 0.250, ftRate: 0.258, pace: 99.6, ppg: 111.7, papg: 117.5, streak: "L2", last10: "3-7" },
+  UTA: { name: "Jazz", city: "Utah", conf: "West", w: 20, l: 49, homeW: 13, homeL: 22, awayW: 7, awayL: 27, elo: 1330, netRtg: -7.2, offRtg: 108.6, defRtg: 115.8, efg: 0.518, tov: 0.142, oreb: 0.256, ftRate: 0.262, pace: 99.8, ppg: 108.4, papg: 115.6, streak: "L4", last10: "2-8" },
+  SAC: { name: "Kings", city: "Sacramento", conf: "West", w: 18, l: 52, homeW: 12, homeL: 23, awayW: 6, awayL: 29, elo: 1298, netRtg: -8.2, offRtg: 109.4, defRtg: 117.6, efg: 0.522, tov: 0.140, oreb: 0.252, ftRate: 0.260, pace: 101.0, ppg: 110.5, papg: 118.7, streak: "L5", last10: "2-8" },
+  BKN: { name: "Nets", city: "Brooklyn", conf: "East", w: 17, l: 52, homeW: 11, homeL: 24, awayW: 6, awayL: 28, elo: 1286, netRtg: -8.6, offRtg: 108.8, defRtg: 117.4, efg: 0.518, tov: 0.140, oreb: 0.250, ftRate: 0.258, pace: 99.4, ppg: 108.1, papg: 116.7, streak: "L3", last10: "2-8" },
+  WAS: { name: "Wizards", city: "Washington", conf: "East", w: 16, l: 52, homeW: 10, homeL: 24, awayW: 6, awayL: 28, elo: 1275, netRtg: -9.2, offRtg: 107.6, defRtg: 116.8, efg: 0.512, tov: 0.144, oreb: 0.254, ftRate: 0.258, pace: 100.6, ppg: 108.2, papg: 117.4, streak: "L4", last10: "1-9" },
+  IND: { name: "Pacers", city: "Indiana", conf: "East", w: 15, l: 55, homeW: 10, homeL: 25, awayW: 5, awayL: 30, elo: 1251, netRtg: -10.4, offRtg: 110.8, defRtg: 121.2, efg: 0.530, tov: 0.142, oreb: 0.254, ftRate: 0.260, pace: 102.4, ppg: 113.4, papg: 123.8, streak: "L6", last10: "1-9" },
 };
 
 // Team abbreviation to full display
@@ -386,16 +387,10 @@ const ENGINE = {
 
   // Four Factors comparison — returns 0 to 1 probability
   fourFactorsProb(teamA, teamB) {
-    // eFG% difference (most important)
-    const efgDiff = (teamA.efg - teamB.efg) * 100; // in percentage points
-    // Turnover rate (lower is better, so invert)
+    const efgDiff = (teamA.efg - teamB.efg) * 100;
     const tovDiff = (teamB.tov - teamA.tov) * 100;
-    // Offensive rebound rate
     const orebDiff = (teamA.oreb - teamB.oreb) * 100;
-    // Free throw rate
     const ftDiff = (teamA.ftRate - teamB.ftRate) * 100;
-
-    // Weighted composite: eFG 40%, TOV 25%, OREB 20%, FT 15%
     const composite = efgDiff * 0.40 + tovDiff * 0.25 + orebDiff * 0.20 + ftDiff * 0.15;
     return 1 / (1 + Math.pow(10, -composite / 3));
   },
@@ -407,9 +402,9 @@ const ENGINE = {
       return parseInt(parts[0]) / 10;
     }
     function parseStreak(str) {
-      const type = str[0]; // W or L
+      const type = str[0];
       const count = parseInt(str.substring(1));
-      const val = Math.log(count + 1) / Math.log(11); // log decay, max ~1 at 10
+      const val = Math.log(count + 1) / Math.log(11);
       return type === "W" ? 0.5 + val * 0.2 : 0.5 - val * 0.2;
     }
     const momA = parseLast10(teamA.last10) * 0.6 + parseStreak(teamA.streak) * 0.4;
@@ -420,32 +415,63 @@ const ENGINE = {
 
   // Pythagorean expected win%
   pythagoreanWinPct(team) {
-    const exp = 14.3; // FiveThirtyEight NBA exponent
+    const exp = 14.3;
     return Math.pow(team.ppg, exp) / (Math.pow(team.ppg, exp) + Math.pow(team.papg, exp));
   },
 
-  // Home court probability adjustment
-  homeCourtProb() {
-    // +70 Elo ≈ 60% win probability for the home team vs equal opponent
-    return this.eloWinProb(1500 + this.HOME_ELO_BONUS, 1500);
+  // TEAM-SPECIFIC home court probability (uses actual home win%)
+  teamHomeCourtProb(homeTeam) {
+    const homeGames = homeTeam.homeW + homeTeam.homeL;
+    if (homeGames === 0) return 0.54; // league average fallback
+    const rawHomeWinPct = homeTeam.homeW / homeGames;
+    // Blend with league avg (0.54) to avoid overfitting small samples
+    // Weight: 70% team-specific, 30% league average
+    return rawHomeWinPct * 0.7 + 0.54 * 0.3;
+  },
+
+  // Away team road penalty (uses actual away win%)
+  teamAwayPenalty(awayTeam) {
+    const awayGames = awayTeam.awayW + awayTeam.awayL;
+    if (awayGames === 0) return 0.46;
+    const rawAwayWinPct = awayTeam.awayW / awayGames;
+    return rawAwayWinPct * 0.7 + 0.46 * 0.3;
   },
 
   // Rest adjustment (returns point adjustment)
   restAdjustment(isB2B, isHome) {
     if (!isB2B) return 0;
-    return isHome ? -1.0 : -2.0; // Research: -2 away B2B, -1 home B2B
+    return isHome ? -1.0 : -2.0;
+  },
+
+  // Injury impact estimation (points adjustment)
+  injuryImpact(injuries) {
+    if (!injuries || injuries.length === 0) return 0;
+    let totalImpact = 0;
+    injuries.forEach(inj => {
+      // Star players (top usage) = bigger impact
+      if (inj.status === "Out" || inj.status === "O") {
+        totalImpact -= (inj.impact || 3); // default 3 pts for unknown players
+      } else if (inj.status === "Doubtful" || inj.status === "D") {
+        totalImpact -= (inj.impact || 3) * 0.75;
+      } else if (inj.status === "Questionable" || inj.status === "Q") {
+        totalImpact -= (inj.impact || 3) * 0.3;
+      }
+    });
+    return totalImpact;
   },
 
   // MAIN PREDICTION FUNCTION
-  predict(awayKey, homeKey, awayB2B = false, homeB2B = false) {
+  predict(awayKey, homeKey, awayB2B = false, homeB2B = false, awayInjuries = [], homeInjuries = []) {
     const away = TEAMS[awayKey];
     const home = TEAMS[homeKey];
     if (!away || !home) return null;
 
     const W = this.WEIGHTS;
 
-    // 1. Elo (with home court bonus)
-    const eloProb = this.eloWinProb(away.elo, home.elo + this.HOME_ELO_BONUS);
+    // 1. Elo (with team-specific home court bonus)
+    const homeHCA = this.teamHomeCourtProb(home);
+    const homeEloBonus = Math.round((homeHCA - 0.5) * 400); // convert win% advantage to Elo points
+    const eloProb = this.eloWinProb(away.elo, home.elo + homeEloBonus);
     const homeEloProb = 1 - eloProb;
 
     // 2. Net Rating
@@ -460,9 +486,9 @@ const ENGINE = {
     const momProb = this.momentumProb(away, home);
     const homeMomProb = 1 - momProb;
 
-    // 5. Home Court (constant bias toward home)
-    const hcProb = 1 - this.homeCourtProb(); // away perspective
-    const homeHCProb = this.homeCourtProb();
+    // 5. Home Court (team-specific)
+    const hcProb = 1 - homeHCA;
+    const homeHCProb = homeHCA;
 
     // 6. Pythagorean
     const pythA = this.pythagoreanWinPct(away);
@@ -476,7 +502,7 @@ const ENGINE = {
     const homeRestProb = 1 - restProb;
 
     // Composite away win probability
-    const awayWinProb =
+    let awayWinProb =
       W.elo * eloProb +
       W.netRating * nrProb +
       W.fourFactors * ffProb +
@@ -485,26 +511,47 @@ const ENGINE = {
       W.rest * restProb +
       W.pythagorean * pythProb;
 
-    const homeWinProb = 1 - awayWinProb;
+    let homeWinProb = 1 - awayWinProb;
 
-    // Projected spread (Elo-based + rest adjustment)
-    const eloDiff = home.elo + this.HOME_ELO_BONUS - away.elo;
+    // Projected spread (Elo-based + rest + injuries)
+    const eloDiff = home.elo + homeEloBonus - away.elo;
     let spread = eloDiff / this.ELO_TO_SPREAD;
     spread += this.restAdjustment(homeB2B, true) - this.restAdjustment(awayB2B, false);
 
-    // Projected scores
-    // (what away scores + what home allows + what home scores + what away allows) / 2 = combined total
+    // Apply injury adjustments to spread
+    const awayInjImpact = this.injuryImpact(awayInjuries);
+    const homeInjImpact = this.injuryImpact(homeInjuries);
+    spread += (homeInjImpact - awayInjImpact); // negative injury = worse for that team
+    // Nudge win probability based on injury spread change
+    const injSpreadShift = homeInjImpact - awayInjImpact;
+    if (Math.abs(injSpreadShift) > 0) {
+      const injProbShift = injSpreadShift / 28 * 0.15; // ~0.5% per point of injury impact
+      awayWinProb = Math.max(0.05, Math.min(0.95, awayWinProb - injProbShift));
+      homeWinProb = 1 - awayWinProb;
+    }
+
+    // ── SCORE PROJECTIONS (with variance scaling) ──
     const avgTotal = (away.ppg + home.papg + home.ppg + away.papg) / 2;
     const paceAdj = (away.pace + home.pace) / 200;
     const projTotal = avgTotal * paceAdj;
-    const homeScore = Math.round((projTotal / 2) + (spread / 2));
-    const awayScore = Math.round((projTotal / 2) - (spread / 2));
 
-    // Confidence level
+    // Scale the spread's effect on individual scores by confidence
+    // HIGH confidence games → stretch scores apart (blowout potential)
+    // LOW confidence → compress toward even split
+    const winnerProb = Math.max(homeWinProb, awayWinProb);
+    const confidenceMultiplier = winnerProb > 0.65 ? 1.3 : winnerProb > 0.55 ? 1.0 : 0.7;
+    const scaledSpread = spread * confidenceMultiplier;
+
+    const homeScore = Math.round((projTotal / 2) + (scaledSpread / 2));
+    const awayScore = Math.round((projTotal / 2) - (scaledSpread / 2));
+
+    // ── CONFIDENCE LEVELS (with TOSS-UP tier) ──
     const probDiff = Math.abs(homeWinProb - 0.5);
-    let confidence = "LOW";
+    let confidence = "TOSS-UP";
     if (probDiff > 0.18) confidence = "HIGH";
     else if (probDiff > 0.10) confidence = "MED";
+    else if (probDiff > 0.05) confidence = "LOW";
+    // Under 5% from 50/50 = TOSS-UP
 
     return {
       awayKey, homeKey,
@@ -516,6 +563,9 @@ const ENGINE = {
       projTotal: Math.round(projTotal * 10) / 10,
       confidence,
       pick: homeWinProb > awayWinProb ? homeKey : awayKey,
+      isTossUp: confidence === "TOSS-UP",
+      awayInjuries,
+      homeInjuries,
       factors: {
         elo: { away: Math.round(eloProb * 100), home: Math.round(homeEloProb * 100) },
         netRating: { away: Math.round(nrProb * 100), home: Math.round(homeNrProb * 100) },
@@ -747,10 +797,16 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
           <div className="pred-score">
             Projected: {pred.projAwayScore} — {pred.projHomeScore}
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span className={`pick-tag ${pred.pick === pred.homeKey ? "home" : "away"}`}>
-              Pick: {TEAMS[pred.pick]?.city}
-            </span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            {pred.isTossUp ? (
+              <span className="pick-tag" style={{ background: "rgba(204,68,68,0.1)", color: "var(--loss-red)" }}>
+                Toss-Up — Lean {TEAMS[pred.pick]?.city}
+              </span>
+            ) : (
+              <span className={`pick-tag ${pred.pick === pred.homeKey ? "home" : "away"}`}>
+                Pick: {TEAMS[pred.pick]?.city}
+              </span>
+            )}
             <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
               Spread: {pred.spread > 0 ? `${TEAMS[pred.homeKey]?.city} -${pred.spread}` : `${TEAMS[pred.awayKey]?.city} -${Math.abs(pred.spread)}`}
             </span>
