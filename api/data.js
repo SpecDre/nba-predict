@@ -1,86 +1,72 @@
 const fetch = require('node-fetch');
 
-// ESPN API - free, no auth, works from serverless
-const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
+const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
+const ESPN_STANDINGS = 'https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=2025';
 
-const TEAM_ABBR_MAP = {
-  'ATL':'ATL','BOS':'BOS','BKN':'BKN','CHA':'CHA','CHI':'CHI','CLE':'CLE',
-  'DAL':'DAL','DEN':'DEN','DET':'DET','GS':'GSW','HOU':'HOU','IND':'IND',
-  'LAC':'LAC','LAL':'LAL','MEM':'MEM','MIA':'MIA','MIL':'MIL','MIN':'MIN',
-  'NO':'NOP','NY':'NYK','OKC':'OKC','ORL':'ORL','PHI':'PHI','PHX':'PHX',
-  'POR':'POR','SAC':'SAC','SA':'SAS','TOR':'TOR','UTAH':'UTA','UTA':'UTA',
-  'WAS':'WAS','GSW':'GSW','NYK':'NYK','NOP':'NOP','SAS':'SAS',
-};
+const ABBR_FIX = {'GS':'GSW','NY':'NYK','NO':'NOP','SA':'SAS','UTAH':'UTA'};
+function fixAbbr(a) { return ABBR_FIX[a] || a; }
+
+function getStat(stats, name) {
+  const s = stats.find(x => x.abbreviation === name || x.name === name);
+  return s ? (parseFloat(s.displayValue) || parseFloat(s.value) || 0) : 0;
+}
 
 async function getScoreboard() {
   try {
-    const res = await fetch(ESPN + '/scoreboard', { timeout: 10000 });
+    const res = await fetch(ESPN_SCOREBOARD, { timeout: 10000 });
     const data = await res.json();
     const games = (data.events || []).map(ev => {
-      const comp = ev.competitions?.[0];
-      const home = comp?.competitors?.find(c => c.homeAway === 'home');
-      const away = comp?.competitors?.find(c => c.homeAway === 'away');
+      const c = ev.competitions?.[0];
+      const home = c?.competitors?.find(x => x.homeAway === 'home');
+      const away = c?.competitors?.find(x => x.homeAway === 'away');
       return {
-        id: ev.id,
-        HOME_TEAM_ID: home?.team?.abbreviation,
-        VISITOR_TEAM_ID: away?.team?.abbreviation,
-        homeName: home?.team?.displayName,
-        awayName: away?.team?.displayName,
-        homeScore: home?.score,
-        awayScore: away?.score,
+        HOME_TEAM_ID: fixAbbr(home?.team?.abbreviation),
+        VISITOR_TEAM_ID: fixAbbr(away?.team?.abbreviation),
         status: ev.status?.type?.description,
-        startTime: ev.date,
       };
     });
     return { games, date: new Date().toISOString().split('T')[0].replace(/-/g,'') };
-  } catch(e) { console.error('Scoreboard error:', e.message); return { games: [], date: '' }; }
+  } catch(e) { return { games: [], date: '' }; }
 }
 
 async function getTeamStats() {
   try {
-    const res = await fetch(ESPN + '/standings', { timeout: 10000 });
+    const res = await fetch(ESPN_STANDINGS, { timeout: 10000 });
     const data = await res.json();
     const teams = [];
     for (const group of (data.children || [])) {
       for (const entry of (group.standings?.entries || [])) {
         const t = entry.team || {};
-        const stats = {};
-        for (const s of (entry.stats || [])) { stats[s.abbreviation || s.name] = s.value || s.displayValue; }
-        const abbr = TEAM_ABBR_MAP[t.abbreviation] || t.abbreviation;
+        const s = entry.stats || [];
+        const abbr = fixAbbr(t.abbreviation);
+        const w = getStat(s, 'W') || getStat(s, 'wins');
+        const l = getStat(s, 'L') || getStat(s, 'losses');
+        const ppg = getStat(s, 'PPG') || getStat(s, 'avgPointsFor') || 110;
+        const oppPpg = getStat(s, 'OPP PPG') || getStat(s, 'avgPointsAgainst') || 110;
+        const diff = getStat(s, 'DIFF') || getStat(s, 'differential') || 0;
+        const strk = (s.find(x => x.abbreviation === 'STRK' || x.name === 'streak') || {}).displayValue || '';
         teams.push({
-          TEAM_ID: t.id, TEAM_ABBREVIATION: abbr, TEAM_NAME: t.displayName,
-          GP: parseInt(stats.GP || stats.gamesPlayed || 0),
-          W: parseInt(stats.W || stats.wins || 0),
-          L: parseInt(stats.L || stats.losses || 0),
-          PTS: parseFloat(stats.PPG || stats.avgPointsFor || 110),
-          OPP_PTS: parseFloat(stats.OPPG || stats.avgPointsAgainst || 110),
-          FG_PCT: parseFloat(stats['FG%'] || 0.46),
-          FG3_PCT: parseFloat(stats['3P%'] || 0.36),
-          REB: parseFloat(stats.RPG || 44),
-          AST: parseFloat(stats.APG || 25),
-          STL: parseFloat(stats.SPG || 7),
-          BLK: parseFloat(stats.BPG || 5),
-          TOV: parseFloat(stats.TPG || 14),
-          DIFF: parseFloat(stats.DIFF || stats.differential || 0),
-          STRK: stats.STRK || stats.streak || '',
+          TEAM_ID: t.id, TEAM_ABBREVIATION: abbr, TEAM_NAME: t.displayName || t.shortDisplayName,
+          GP: w + l, W: w, L: l, PTS: ppg, OPP_PTS: oppPpg, DIFF: diff, STRK: strk,
+          FG_PCT: 0.47, FG3_PCT: 0.36, REB: 44, AST: 25, STL: 7, BLK: 5, TOV: 14,
         });
       }
     }
     return teams;
-  } catch(e) { console.error('Team stats error:', e.message); return []; }
+  } catch(e) { console.error('Stats error:', e.message); return []; }
 }
 
-async function getTeamAdvanced(teams) {
-  // Derive advanced stats from base ESPN data
-  return teams.map(t => ({
-    TEAM_ID: t.TEAM_ID,
-    OFF_RATING: 100 + (t.PTS - 110) * 1.1 + (t.DIFF > 0 ? t.DIFF * 0.3 : t.DIFF * 0.3),
-    DEF_RATING: 100 + (t.OPP_PTS - 110) * 1.1 - (t.DIFF > 0 ? t.DIFF * 0.3 : t.DIFF * 0.3),
-    NET_RATING: t.DIFF * 1.0,
-    PACE: 100,
-    EFG_PCT: t.FG_PCT * 1.08,
-    TS_PCT: t.FG_PCT * 1.12,
-  }));
+function deriveAdvanced(teams) {
+  return teams.map(t => {
+    const netRtg = t.DIFF * 0.75;
+    return {
+      TEAM_ID: t.TEAM_ID,
+      OFF_RATING: 112 + (t.PTS - 112) * 0.9,
+      DEF_RATING: 112 - (t.PTS - t.OPP_PTS) * 0.9 + (t.OPP_PTS - 112) * 0.9,
+      NET_RATING: netRtg,
+      PACE: 100,
+    };
+  });
 }
 
 module.exports = async function handler(req, res) {
@@ -90,22 +76,21 @@ module.exports = async function handler(req, res) {
   try {
     let result = {};
     switch(type) {
-      case 'scoreboard':
-        result = await getScoreboard(); break;
+      case 'scoreboard': result = await getScoreboard(); break;
       case 'teamstats': {
-        const teams = await getTeamStats();
-        const adv = await getTeamAdvanced(teams);
-        result = { base: teams, advanced: adv, last10: teams, last5: teams }; break;
+        const base = await getTeamStats();
+        result = { base, advanced: deriveAdvanced(base), last10: base, last5: base };
+        break;
       }
       case 'all': {
-        const [sb, teams] = await Promise.all([getScoreboard(), getTeamStats()]);
-        const adv = await getTeamAdvanced(teams);
+        const [sb, base] = await Promise.all([getScoreboard(), getTeamStats()]);
+        const adv = deriveAdvanced(base);
         result = {
           scoreboard: sb,
-          teamStats: { base: teams, advanced: adv, last10: teams, last5: teams },
-          standings: [],
-          meta: { season: '2025-26', timestamp: new Date().toISOString() },
-        }; break;
+          teamStats: { base, advanced: adv, last10: base, last5: base },
+          standings: [], meta: { season: '2025-26', timestamp: new Date().toISOString() },
+        };
+        break;
       }
       default: return res.status(400).json({ error: 'Use: scoreboard, teamstats, all' });
     }
