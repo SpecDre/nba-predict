@@ -652,6 +652,46 @@ function mapTricode(tri) {
 }
 
 
+// ─── LIVE STATS REFRESH ───────────────────────────────────────
+
+async function fetchLiveStats() {
+  try {
+    const resp = await fetch('/api/stats');
+    if (!resp.ok) throw new Error('Stats API failed');
+    const data = await resp.json();
+    if (!data.success || !data.teams || data.teams.length === 0) throw new Error('No team data');
+
+    // Merge fresh stats into the embedded TEAMS object
+    let updated = 0;
+    data.teams.forEach(t => {
+      if (TEAMS[t.key]) {
+        TEAMS[t.key].w = t.w;
+        TEAMS[t.key].l = t.l;
+        TEAMS[t.key].homeW = t.homeW;
+        TEAMS[t.key].homeL = t.homeL;
+        TEAMS[t.key].awayW = t.awayW;
+        TEAMS[t.key].awayL = t.awayL;
+        TEAMS[t.key].elo = t.elo;
+        TEAMS[t.key].netRtg = t.netRtg;
+        TEAMS[t.key].offRtg = t.offRtg;
+        TEAMS[t.key].defRtg = t.defRtg;
+        TEAMS[t.key].pace = t.pace;
+        TEAMS[t.key].ppg = t.ppg;
+        TEAMS[t.key].papg = t.papg;
+        TEAMS[t.key].streak = t.streak;
+        TEAMS[t.key].last10 = t.last10;
+        updated++;
+      }
+    });
+
+    console.log(`[NBA Predict] Live stats updated: ${updated} teams from NBAstuffer`);
+    return { success: true, updated, timestamp: data.updated };
+  } catch (e) {
+    console.log('[NBA Predict] Live stats unavailable, using embedded data:', e.message);
+    return { success: false };
+  }
+}
+
 // ─── REACT COMPONENTS ─────────────────────────────────────────
 
 function App() {
@@ -659,13 +699,16 @@ function App() {
   const [games, setGames] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [expanded, setExpanded] = React.useState({});
+  const [dataSource, setDataSource] = React.useState("embedded"); // "live" or "embedded"
 
   React.useEffect(() => {
-    fetchTodaysGames().then(g => {
-      setGames(g);
-      setLoading(false);
-    }).catch(() => {
-      setGames(getFallbackGames());
+    // Fetch live stats first (background), then load games
+    Promise.all([
+      fetchLiveStats(),
+      fetchTodaysGames().catch(() => getFallbackGames()),
+    ]).then(([statsResult, gamesList]) => {
+      if (statsResult.success) setDataSource("live");
+      setGames(gamesList);
       setLoading(false);
     });
   }, []);
@@ -687,7 +730,14 @@ function App() {
           <div>
             <div className="logo">NBA <span>Predict</span><span className="version-badge">V3</span></div>
           </div>
-          <div className="header-meta">{todayStr}</div>
+          <div className="header-meta">
+            {todayStr}
+            <span style={{ marginLeft: 12, fontSize: 11, padding: "2px 8px", borderRadius: 3,
+              background: dataSource === "live" ? "rgba(45,143,78,0.15)" : "rgba(180,160,130,0.2)",
+              color: dataSource === "live" ? "var(--win-green)" : "var(--sand-400)" }}>
+              {dataSource === "live" ? "● LIVE DATA" : "● CACHED DATA"}
+            </span>
+          </div>
         </div>
       </header>
 
