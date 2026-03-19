@@ -1074,8 +1074,9 @@ function predictGame(home, away) {
 
   const avgPace = (home.pace + away.pace) / 2;
   const paceAdj = avgPace / 100;
-  const projHome = Math.round((home.ortg + (110 - away.drtg)) / 2 * paceAdj);
-  const projAway = Math.round((away.ortg + (110 - home.drtg)) / 2 * paceAdj);
+  // Project scores: average team's PPG with what opponent allows, pace-adjusted
+  const projHome = Math.round((home.ppg + away.oppPpg) / 2 * paceAdj);
+  const projAway = Math.round((away.ppg + home.oppPpg) / 2 * paceAdj);
 
   const gpMin = Math.min(home.gp, away.gp);
   const sampleConf = Math.min(gpMin / 30, 1);
