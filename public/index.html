@@ -1014,15 +1014,13 @@ function pythagoreanWins(pf, pa) {
   return pfE / (pfE + paE);
 }
 
-function buildProfiles(base, advanced, last10, last5, fourFactors, oppStats, standings) {
+function buildProfiles(base, advanced, last10, last5, standings) {
   const profiles = {};
   if (!base || !advanced) return profiles;
 
   const advMap = {}; advanced.forEach(t => advMap[t.TEAM_ID] = t);
   const l10Map = {}; if (last10) last10.forEach(t => l10Map[t.TEAM_ID] = t);
   const l5Map = {}; if (last5) last5.forEach(t => l5Map[t.TEAM_ID] = t);
-  const ffMap = {}; if (fourFactors) fourFactors.forEach(t => ffMap[t.TEAM_ID] = t);
-  const oppMap = {}; if (oppStats) oppStats.forEach(t => oppMap[t.TEAM_ID] = t);
   const standMap = {}; if (standings) standings.forEach(t => {
     const abbr = t.TeamAbbreviation || t.TEAM_ABBREVIATION;
     if (abbr) standMap[abbr] = t;
@@ -1034,21 +1032,33 @@ function buildProfiles(base, advanced, last10, last5, fourFactors, oppStats, sta
     const adv = advMap[id] || {};
     const l10 = l10Map[id] || {};
     const l5 = l5Map[id] || {};
-    const ff = ffMap[id] || {};
-    const opp = oppMap[id] || {};
     const stand = standMap[abbr] || {};
     const gp = team.GP || 1;
     const w = team.W || 0;
     const l_count = team.L || 0;
     const ppg = team.PTS || 110;
     const netR = adv.NET_RATING || 0;
-    const oppPpg = opp.PTS || (ppg - netR);
+    const oppPpg = ppg - netR;
 
-    // Elo: initialize from win% (1500 baseline, scale by performance)
     const winPct = w / Math.max(gp, 1);
+    // Elo: derived from win% + net rating
     const elo = 1500 + (winPct - 0.5) * 600 + (netR * 15);
 
-    // Parse streak from standings
+    // Four Factors calculated from base+advanced stats
+    const fgPct = team.FG_PCT || 0.46;
+    const fg3Pct = team.FG3_PCT || 0.36;
+    const ftPct = team.FT_PCT || 0.78;
+    const fga = team.FGA || 88;
+    const fg3a = team.FG3A || 35;
+    const fta = team.FTA || 22;
+    const tov = team.TOV || 14;
+    const oreb = team.OREB || 10;
+    const efgPct = adv.EFG_PCT || (fgPct + 0.5 * fg3Pct * (fg3a / fga));
+    const tovPct = adv.TM_TOV_PCT || (tov / (fga + 0.44 * fta + tov));
+    const orebPct = adv.OREB_PCT || 0.25;
+    const ftRate = fta / Math.max(fga, 1);
+
+    // Streak from standings
     let streak = 0;
     let streakType = '';
     const streakStr = stand.strCurrentStreak || stand.CurrentStreak || '';
@@ -1061,33 +1071,17 @@ function buildProfiles(base, advanced, last10, last5, fourFactors, oppStats, sta
       id, abbr,
       name: (TEAM_FULL[abbr] || abbr).split(' ').pop(),
       fullName: TEAM_FULL[abbr] || abbr,
-      gp, w, l: l_count,
-      winPct,
-      ppg, oppPpg,
+      gp, w, l: l_count, winPct, ppg, oppPpg,
       ortg: adv.OFF_RATING || 110,
       drtg: adv.DEF_RATING || 110,
       netRating: netR,
       pace: adv.PACE || 100,
       elo,
-      // Shooting efficiency
-      fgPct: team.FG_PCT || 0.46,
-      fg3Pct: team.FG3_PCT || 0.36,
-      ftPct: team.FT_PCT || 0.78,
-      // Four Factors
-      efgPct: ff.EFG_PCT || adv.EFG_PCT || 0.52,
-      tovPct: ff.TM_TOV_PCT || (team.TOV ? team.TOV / (team.FGA + 0.44 * team.FTA + team.TOV) : 0.13),
-      orebPct: ff.OREB_PCT || adv.OREB_PCT || 0.25,
-      ftRate: ff.FTA_RATE || (team.FTA ? team.FTA / team.FGA : 0.25),
-      // Opponent Four Factors (what they allow)
-      oppEfgPct: opp.FG_PCT ? (opp.FG_PCT + 1.5 * (opp.FG3_PCT || 0.36) * ((opp.FG3A || 35) / (opp.FGA || 88))) : 0.52,
-      oppFgPct: opp.FG_PCT || 0.46,
-      oppFg3Pct: opp.FG3_PCT || 0.36,
-      // Pythagorean
+      fgPct, fg3Pct, ftPct,
+      efgPct, tovPct, orebPct, ftRate,
       pythWinPct: pythagoreanWins(ppg, oppPpg),
-      // Streak & Momentum
       streak, streakType,
       streakPts: streakType === 'W' ? Math.min(streak * 0.5, 3) : (streakType === 'L' ? -Math.min(streak * 0.5, 3) : 0),
-      // Recent form
       last10: {
         winPct: l10.GP ? (l10.W / l10.GP) : winPct,
         ppg: l10.PTS || ppg,
@@ -1552,8 +1546,8 @@ async function init() {
     }
 
     // Build profiles
-    const { base, advanced, last10, last5, fourFactors, oppStats } = allData.teamStats;
-    APP.profiles = buildProfiles(base, advanced, last10, last5, fourFactors, oppStats, allData.standings);
+    const { base, advanced, last10, last5 } = allData.teamStats;
+    APP.profiles = buildProfiles(base, advanced, last10, last5, allData.standings);
     APP.odds = oddsData;
 
     // Generate rankings
