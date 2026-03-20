@@ -593,37 +593,34 @@ async function fetchTodaysGames() {
   const today = new Date();
   const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
 
-  // Try local API proxy first (your Vercel api/scores.js), then CDN fallback
-  const urls = [
-    `/api/scores`,
-    `https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json`,
-  ];
-
-  for (const url of urls) {
-    try {
-      const resp = await fetch(url);
-      if (!resp.ok) continue;
+  // Use our Vercel API proxy which handles all the NBA endpoint retries server-side
+  // CDN calls from the browser get CORS blocked, so everything goes through /api/scores
+  try {
+    const resp = await fetch(`/api/scores`);
+    if (resp.ok) {
       const data = await resp.json();
 
-      if (data.scoreboard && data.scoreboard.games) {
+      if (data.scoreboard && data.scoreboard.games && data.scoreboard.games.length > 0) {
         return data.scoreboard.games.map(g => ({
           id: g.gameId,
-          status: g.gameStatusText || g.gameStatus,
-          statusNum: g.gameStatus, // 1=not started, 2=live, 3=final
+          status: g.gameStatusText || String(g.gameStatus),
+          statusNum: typeof g.gameStatus === 'number' ? g.gameStatus :
+            (String(g.gameStatusText || '').includes('Final') ? 3 :
+             String(g.gameStatusText || '').match(/^\d/) ? 2 : 1),
           time: g.gameTimeUTC,
           away: {
             abbrev: g.awayTeam.teamTricode,
-            score: g.awayTeam.score,
+            score: g.awayTeam.score || 0,
           },
           home: {
             abbrev: g.homeTeam.teamTricode,
-            score: g.homeTeam.score,
+            score: g.homeTeam.score || 0,
           },
         }));
       }
-    } catch (e) {
-      console.log("Scoreboard fetch failed:", e);
     }
+  } catch (e) {
+    console.log("Scoreboard fetch failed:", e);
   }
 
   // Fallback: return hardcoded sample games for today
@@ -631,18 +628,49 @@ async function fetchTodaysGames() {
 }
 
 function getFallbackGames() {
-  // March 19, 2026 — actual Thursday slate
+  // March 19, 2026 — actual Thursday slate (times in PT)
   // B2B: LAL (played @HOU last night), LAC (played @NOP last night), CHI (hosted TOR last night), NOP (hosted LAC last night)
   return [
-    { id: "1", status: "7:00 PM ET", statusNum: 1, away: { abbrev: "DET", score: 0 }, home: { abbrev: "WAS", score: 0 } },
-    { id: "2", status: "7:00 PM ET", statusNum: 1, away: { abbrev: "ORL", score: 0 }, home: { abbrev: "CHA", score: 0 } },
-    { id: "3", status: "8:00 PM ET", statusNum: 1, away: { abbrev: "CLE", score: 0 }, home: { abbrev: "CHI", score: 0 }, homeB2B: true },
-    { id: "4", status: "8:00 PM ET", statusNum: 1, away: { abbrev: "LAC", score: 0, b2b: true }, home: { abbrev: "NOP", score: 0, b2b: true } },
-    { id: "5", status: "8:00 PM ET", statusNum: 1, away: { abbrev: "PHX", score: 0 }, home: { abbrev: "SAS", score: 0 } },
-    { id: "6", status: "8:00 PM ET", statusNum: 1, away: { abbrev: "LAL", score: 0, b2b: true }, home: { abbrev: "MIA", score: 0 } },
-    { id: "7", status: "9:00 PM ET", statusNum: 1, away: { abbrev: "MIL", score: 0 }, home: { abbrev: "UTA", score: 0 } },
-    { id: "8", status: "10:00 PM ET", statusNum: 1, away: { abbrev: "PHI", score: 0 }, home: { abbrev: "SAC", score: 0 } },
+    { id: "1", status: "4:00 PM PT", statusNum: 1, away: { abbrev: "DET", score: 0 }, home: { abbrev: "WAS", score: 0 } },
+    { id: "2", status: "4:00 PM PT", statusNum: 1, away: { abbrev: "ORL", score: 0 }, home: { abbrev: "CHA", score: 0 } },
+    { id: "3", status: "5:00 PM PT", statusNum: 1, away: { abbrev: "CLE", score: 0 }, home: { abbrev: "CHI", score: 0 }, homeB2B: true },
+    { id: "4", status: "5:00 PM PT", statusNum: 1, away: { abbrev: "LAC", score: 0, b2b: true }, home: { abbrev: "NOP", score: 0, b2b: true } },
+    { id: "5", status: "5:00 PM PT", statusNum: 1, away: { abbrev: "PHX", score: 0 }, home: { abbrev: "SAS", score: 0 } },
+    { id: "6", status: "5:00 PM PT", statusNum: 1, away: { abbrev: "LAL", score: 0, b2b: true }, home: { abbrev: "MIA", score: 0 } },
+    { id: "7", status: "6:00 PM PT", statusNum: 1, away: { abbrev: "MIL", score: 0 }, home: { abbrev: "UTA", score: 0 } },
+    { id: "8", status: "7:00 PM PT", statusNum: 1, away: { abbrev: "PHI", score: 0 }, home: { abbrev: "SAC", score: 0 } },
   ];
+}
+
+// Convert ET time strings to Pacific
+function convertToPacific(statusText) {
+  if (!statusText || typeof statusText !== 'string') return statusText;
+  // If already PT, return as-is
+  if (statusText.includes('PT') || statusText.includes('Pacific')) return statusText;
+  // If it's a live game status like "Q2 5:30" or "Final" or "Halftime", don't convert
+  if (!statusText.includes('ET') && !statusText.includes('EST') && !statusText.includes('EDT')) return statusText;
+
+  // Extract time from strings like "7:00 PM ET" or "10:30 PM EST"
+  const match = statusText.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*(ET|EST|EDT)/i);
+  if (!match) return statusText;
+
+  let hours = parseInt(match[1]);
+  const mins = match[2];
+  const ampm = match[3].toUpperCase();
+
+  // Convert to 24hr
+  if (ampm === 'PM' && hours !== 12) hours += 12;
+  if (ampm === 'AM' && hours === 12) hours = 0;
+
+  // Subtract 3 hours for ET → PT
+  hours -= 3;
+  if (hours < 0) hours += 24;
+
+  // Back to 12hr
+  const newAmpm = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
+
+  return `${displayHours}:${mins} ${newAmpm} PT`;
 }
 
 // Map tricode to our keys (handle special cases)
@@ -711,9 +739,17 @@ function App() {
       setGames(gamesList);
       setLoading(false);
     });
+
+    // Auto-refresh scores every 30 seconds for live games
+    const interval = setInterval(() => {
+      fetchTodaysGames().then(g => {
+        if (g && g.length > 0) setGames(g);
+      }).catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  const todayStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const todayStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "America/Los_Angeles" });
 
   const predictions = games.map(g => {
     const awayKey = mapTricode(g.away.abbrev);
@@ -818,7 +854,7 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
   return (
     <div className="game-card">
       <div className="game-card-header">
-        <span>{isLive ? "🔴 LIVE" : isFinal ? "FINAL" : game.status}</span>
+        <span>{isLive ? "🔴 LIVE" : isFinal ? "FINAL" : convertToPacific(game.status)}</span>
         <span className={`confidence-badge confidence-${pred.confidence.toLowerCase()}`}>
           {pred.confidence} CONFIDENCE
         </span>
