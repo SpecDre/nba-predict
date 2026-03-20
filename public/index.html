@@ -167,21 +167,16 @@ main { padding: 24px 0 60px; }
   margin-top: 10px; padding-top: 10px;
   border-top: 1px solid var(--border);
 }
-.highlight-toggle {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 12px; font-weight: 700; color: var(--accent-blue);
-  cursor: pointer; padding: 6px 12px;
-  border: 1px solid var(--border); border-radius: 6px;
-  background: var(--sand-50); transition: all 0.15s;
-  font-family: inherit;
+.highlight-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: #fff;
+  cursor: pointer; padding: 8px 16px;
+  border: none; border-radius: 6px;
+  background: #c00; transition: all 0.15s;
+  font-family: inherit; text-decoration: none;
 }
-.highlight-toggle:hover { background: var(--sand-100); border-color: var(--accent-blue); }
-.highlight-toggle .hl-icon { font-size: 14px; }
-.yt-embed {
-  margin-top: 10px; border-radius: 8px; overflow: hidden;
-  background: #000; aspect-ratio: 16/9; width: 100%;
-}
-.yt-embed iframe { width: 100%; height: 100%; border: none; }
+.highlight-link:hover { background: #a00; }
+.highlight-link .hl-icon { font-size: 16px; }
 
 /* FACTOR BREAKDOWN */
 .factor-toggle {
@@ -986,7 +981,6 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
 
   const isLive = game.statusNum === 2;
   const isFinal = game.statusNum === 3;
-  const [showHL, setShowHL] = React.useState(false);
 
   function formatGameClock() {
     if (!isLive) return '';
@@ -1012,10 +1006,10 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
   const homeLeader = game.leaders?.home;
   const hasLeaders = (isLive || isFinal) && (awayLeader || homeLeader);
 
-  // YouTube embed search URL for highlights
-  function getYouTubeEmbedUrl() {
-    const query = `${away.name} vs ${home.name} highlights NBA`;
-    return `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(query)}`;
+  // YouTube search URL for highlights
+  function getHighlightUrl() {
+    const query = `${away.name} vs ${home.name} full game highlights NBA`;
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
   }
 
   return (
@@ -1132,18 +1126,9 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
         {/* Highlights — only for Final games */}
         {isFinal && (
           <div className="highlights-bar">
-            <button className="highlight-toggle" onClick={() => setShowHL(!showHL)}>
-              <span className="hl-icon">{showHL ? '▼' : '▶'}</span> {showHL ? 'Hide Highlights' : 'Watch Highlights'}
-            </button>
-            {showHL && (
-              <div className="yt-embed">
-                <iframe
-                  src={getYouTubeEmbedUrl()}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              </div>
-            )}
+            <a className="highlight-link" href={getHighlightUrl()} target="_blank" rel="noopener noreferrer">
+              <span className="hl-icon">▶</span> Watch Highlights
+            </a>
           </div>
         )}
 
