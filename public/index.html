@@ -355,14 +355,22 @@ footer {
 
 /* GAME CLOCK */
 .game-clock {
-  font-size: 11px; font-weight: 700; color: var(--loss-red);
-  display: flex; align-items: center; gap: 4px;
+  font-size: 15px; font-weight: 900; color: var(--loss-red);
+  display: flex; align-items: center; gap: 6px;
+  letter-spacing: 0.5px;
 }
 .game-clock .dot {
-  width: 6px; height: 6px; border-radius: 50%;
+  width: 8px; height: 8px; border-radius: 50%;
   background: var(--loss-red); animation: pulse 1.5s infinite;
 }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* BONUS BADGE */
+.bonus-badge {
+  font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 1px 5px; border-radius: 3px; margin-left: 4;
+  background: #fff3e0; color: #e65100; display: inline-block;
+}
 
 /* RESPONSIVE */
 @media (max-width: 600px) {
@@ -729,12 +737,14 @@ async function fetchTodaysGames() {
             score: g.awayTeam.score || 0,
             periods: g.awayTeam.periods || [],
             timeouts: g.awayTeam.timeoutsRemaining,
+            inBonus: g.awayTeam.inBonus === '1' || g.awayTeam.inBonus === 1,
           },
           home: {
             abbrev: g.homeTeam.teamTricode,
             score: g.homeTeam.score || 0,
             periods: g.homeTeam.periods || [],
             timeouts: g.homeTeam.timeoutsRemaining,
+            inBonus: g.homeTeam.inBonus === '1' || g.homeTeam.inBonus === 1,
           },
           leaders: {
             away: g.gameLeaders?.awayLeaders || null,
@@ -1017,7 +1027,7 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
       <div className="game-card-header">
         <span>
           {isLive ? (
-            <span className="game-clock"><span className="dot"></span> {formatGameClock()}</span>
+            <span style={{ color: 'var(--loss-red)', fontWeight: 700 }}>● LIVE</span>
           ) : isFinal ? "FINAL" : convertToPacific(game.status)}
         </span>
         <span className={`confidence-badge confidence-${pred.confidence.toLowerCase()}`}>
@@ -1033,14 +1043,23 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
                 onError={(e) => { e.target.style.display = 'none'; }} />
               <div>
                 <div className="team-name">{away.city} {away.name}</div>
-                <div className="team-record">{away.w}-{away.l} • {away.streak}</div>
+                <div className="team-record">
+                  {away.w}-{away.l} • {away.streak}
+                  {isLive && game.away.inBonus && <span className="bonus-badge">Bonus</span>}
+                </div>
               </div>
             </div>
             {(isLive || isFinal) && <div className="team-name" style={{ fontSize: 24, marginTop: 4 }}>{game.away.score}</div>}
           </div>
 
           <div className="vs-block">
-            <div className="vs-text">{isFinal ? "Final" : isLive ? formatGameClock() : "vs"}</div>
+            {isLive ? (
+              <div className="game-clock" style={{ justifyContent: 'center' }}>
+                <span className="dot"></span> {formatGameClock()}
+              </div>
+            ) : (
+              <div className="vs-text">{isFinal ? "Final" : "vs"}</div>
+            )}
             <div className="prob-bar-container">
               <div className="prob-bar-away" style={{ width: `${pred.awayWinProb}%` }}></div>
               <div className="prob-bar-home" style={{ width: `${pred.homeWinProb}%` }}></div>
@@ -1057,7 +1076,10 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
                 onError={(e) => { e.target.style.display = 'none'; }} />
               <div>
                 <div className="team-name">{home.city} {home.name}</div>
-                <div className="team-record">{home.w}-{home.l} • {home.streak}</div>
+                <div className="team-record">
+                  {home.w}-{home.l} • {home.streak}
+                  {isLive && game.home.inBonus && <span className="bonus-badge">Bonus</span>}
+                </div>
               </div>
             </div>
             {(isLive || isFinal) && <div className="team-name" style={{ fontSize: 24, marginTop: 4 }}>{game.home.score}</div>}
