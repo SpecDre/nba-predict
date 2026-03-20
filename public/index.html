@@ -1107,7 +1107,7 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
                 <div className="leader-jersey away">#{awayLeader.jerseyNum}</div>
                 <div className="leader-info">
                   <div className="leader-name">{awayLeader.name}</div>
-                  <div className="leader-stats">{awayLeader.points}p {awayLeader.rebounds}r {awayLeader.assists}a</div>
+                  <div className="leader-stats">{awayLeader.points} Pts · {awayLeader.rebounds} Reb · {awayLeader.assists} Ast</div>
                 </div>
               </div>
             ) : <div></div>}
@@ -1115,7 +1115,7 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
               <div className="leader-side home">
                 <div className="leader-info">
                   <div className="leader-name">{homeLeader.name}</div>
-                  <div className="leader-stats">{homeLeader.points}p {homeLeader.rebounds}r {homeLeader.assists}a</div>
+                  <div className="leader-stats">{homeLeader.points} Pts · {homeLeader.rebounds} Reb · {homeLeader.assists} Ast</div>
                 </div>
                 <div className="leader-jersey home">#{homeLeader.jerseyNum}</div>
               </div>
