@@ -362,9 +362,6 @@ const TEAMS = {
   IND: { name: "Pacers", city: "Indiana", conf: "East", w: 15, l: 55, homeW: 10, homeL: 25, awayW: 5, awayL: 30, elo: 1251, netRtg: -8.8, offRtg: 110.0, defRtg: 118.8, efg: 0, tov: 0, oreb: 0, ftRate: 0, pace: 100.8, ppg: 111.3, papg: 120.2, streak: "L15", last10: "0-10" },
 };
 
-// Team abbreviation to full display
-const TEAM_ABBREVS = Object.keys(TEAMS);
-
 // ─── V3 PREDICTION ENGINE ─────────────────────────────────────
 
 const ENGINE = {
@@ -379,7 +376,6 @@ const ENGINE = {
     pythagorean: 0.02,
   },
 
-  HOME_ELO_BONUS: 70, // Reduced from 100 due to declining HCA
   ELO_TO_SPREAD: 28, // Elo points per projected point
 
   // Elo win probability
@@ -439,14 +435,6 @@ const ENGINE = {
     return rawHomeWinPct * 0.7 + 0.54 * 0.3;
   },
 
-  // Away team road penalty (uses actual away win%)
-  teamAwayPenalty(awayTeam) {
-    const awayGames = awayTeam.awayW + awayTeam.awayL;
-    if (awayGames === 0) return 0.46;
-    const rawAwayWinPct = awayTeam.awayW / awayGames;
-    return rawAwayWinPct * 0.7 + 0.46 * 0.3;
-  },
-
   // Rest adjustment (returns point adjustment)
   restAdjustment(isB2B, isHome) {
     if (!isB2B) return 0;
@@ -477,6 +465,25 @@ const ENGINE = {
     if (!away || !home) return null;
 
     const W = this.WEIGHTS;
+
+    // Check if Four Factors data is available
+    const hasFF = away.efg !== 0 && home.efg !== 0;
+
+    // If no FF data, redistribute its 15% weight proportionally to other factors
+    let weights = { ...W };
+    if (!hasFF) {
+      const ffWeight = weights.fourFactors;
+      const otherTotal = 1 - ffWeight;
+      weights = {
+        elo: W.elo / otherTotal,
+        netRating: W.netRating / otherTotal,
+        fourFactors: 0,
+        momentum: W.momentum / otherTotal,
+        homeCourt: W.homeCourt / otherTotal,
+        rest: W.rest / otherTotal,
+        pythagorean: W.pythagorean / otherTotal,
+      };
+    }
 
     // 1. Elo (with team-specific home court bonus)
     const homeHCA = this.teamHomeCourtProb(home);
@@ -513,13 +520,13 @@ const ENGINE = {
 
     // Composite away win probability
     let awayWinProb =
-      W.elo * eloProb +
-      W.netRating * nrProb +
-      W.fourFactors * ffProb +
-      W.momentum * momProb +
-      W.homeCourt * hcProb +
-      W.rest * restProb +
-      W.pythagorean * pythProb;
+      weights.elo * eloProb +
+      weights.netRating * nrProb +
+      weights.fourFactors * ffProb +
+      weights.momentum * momProb +
+      weights.homeCourt * hcProb +
+      weights.rest * restProb +
+      weights.pythagorean * pythProb;
 
     let homeWinProb = 1 - awayWinProb;
 
@@ -592,9 +599,6 @@ const ENGINE = {
 // ─── SCOREBOARD FETCH ─────────────────────────────────────────
 
 async function fetchTodaysGames() {
-  const today = new Date();
-  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
-
   // Use our Vercel API proxy which handles all the NBA endpoint retries server-side
   // CDN calls from the browser get CORS blocked, so everything goes through /api/scores
   try {
@@ -918,12 +922,23 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
         {isExpanded && (
           <div className="factor-breakdown">
             {Object.entries(pred.factors).map(([key, val]) => {
-              const labels = {
+              // Skip Four Factors if no data (both 50%)
+              if (key === 'fourFactors' && val.away === 50 && val.home === 50) return null;
+
+              const hasFFData = pred.factors.fourFactors.away !== 50 || pred.factors.fourFactors.home !== 50;
+              const labels = hasFFData ? {
                 elo: "Elo Rating (35%)",
                 netRating: "Net Rating (25%)",
                 fourFactors: "Four Factors (15%)",
                 momentum: "Momentum (10%)",
                 homeCourt: "Home Court (8%)",
+                pythagorean: "Pythagorean (2%)",
+              } : {
+                elo: "Elo Rating (41%)",
+                netRating: "Net Rating (29%)",
+                momentum: "Momentum (12%)",
+                homeCourt: "Home Court (9%)",
+                rest: "Rest / B2B (6%)",
                 pythagorean: "Pythagorean (2%)",
               };
               const awayFavors = val.away > val.home;
