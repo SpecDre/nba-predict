@@ -157,6 +157,9 @@ function parseStatsTable(html) {
       const offRtg = parseFloat(cells[9]) || 110;
       const defRtg = parseFloat(cells[10]) || 110;
       const netRtg = parseFloat(cells[11]) || 0;
+      const sos = parseFloat(cells[12]) || 0;      // Strength of Schedule
+      const cons = parseFloat(cells[15]) || 0;     // Consistency rating
+      const a4f = parseFloat(cells[16]) || 0;      // Adjusted Four Factors composite
       const streakNum = parseInt(cells[23]) || 0;
       const conf = cells[2] || 'East';
 
@@ -194,6 +197,7 @@ function parseStatsTable(html) {
         w, l, homeW, homeL, awayW, awayL,
         elo, netRtg, offRtg, defRtg,
         efg: 0, tov: 0, oreb: 0, ftRate: 0,
+        a4f, sos, cons,
         pace, ppg, papg, streak, last10,
       });
     }
