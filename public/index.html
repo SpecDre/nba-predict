@@ -117,6 +117,10 @@ main { padding: 24px 0 60px; }
 .team-side.away { text-align: left; }
 .team-side.home { text-align: right; }
 
+.team-header { display: flex; align-items: center; gap: 8px; }
+.team-header.home { flex-direction: row-reverse; }
+.team-logo { width: 36px; height: 36px; object-fit: contain; }
+
 .team-name { font-weight: 900; font-size: 18px; line-height: 1.1; }
 .team-record { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
 
@@ -157,6 +161,22 @@ main { padding: 24px 0 60px; }
 }
 .pick-tag.away { background: rgba(58,110,165,0.1); color: var(--accent-blue); }
 .pick-tag.home { background: rgba(196,154,60,0.1); color: var(--accent-gold); }
+
+/* GAME HIGHLIGHTS */
+.highlights-bar {
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.highlight-link {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: var(--accent-blue);
+  text-decoration: none; padding: 6px 12px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--sand-50); transition: all 0.15s;
+}
+.highlight-link:hover { background: var(--sand-100); border-color: var(--accent-blue); }
+.highlight-link .hl-icon { font-size: 14px; }
 
 /* FACTOR BREAKDOWN */
 .factor-toggle {
@@ -296,21 +316,21 @@ footer {
 /* LINESCORE TABLE */
 .linescore {
   width: 100%; border-collapse: collapse;
-  margin: 12px 0 0; font-size: 11px;
+  font-size: 12px;
 }
 .linescore th {
-  padding: 4px 8px; text-align: center;
+  padding: 6px 10px; text-align: center;
   color: var(--text-secondary); font-weight: 700;
   border-bottom: 1px solid var(--border);
   font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
 }
 .linescore td {
-  padding: 4px 8px; text-align: center;
+  padding: 6px 10px; text-align: center;
   border-bottom: 1px solid var(--sand-100);
   font-variant-numeric: tabular-nums;
 }
-.linescore td:first-child { text-align: left; font-weight: 700; font-size: 12px; }
-.linescore td.total-col { font-weight: 900; font-size: 13px; }
+.linescore td:first-child { text-align: left; font-weight: 700; font-size: 12px; min-width: 100px; }
+.linescore td.total-col { font-weight: 900; font-size: 14px; }
 .linescore td.active-qtr { color: var(--accent-gold); font-weight: 700; }
 .linescore tr:last-child td { border-bottom: none; }
 
@@ -350,12 +370,14 @@ footer {
   .tab-btn { padding: 10px 14px; font-size: 11px; }
   .matchup-row { grid-template-columns: 1fr auto 1fr; gap: 8px; }
   .team-name { font-size: 15px; }
+  .team-logo { width: 28px; height: 28px; }
   .vs-block { min-width: 70px; }
   .method-grid { grid-template-columns: 1fr 1fr; }
   .track-summary { grid-template-columns: 1fr 1fr; }
   .tier-grid { grid-template-columns: 1fr 1fr !important; }
   .linescore { font-size: 10px; }
-  .linescore th, .linescore td { padding: 3px 5px; }
+  .linescore th, .linescore td { padding: 4px 6px; }
+  .linescore td:first-child { min-width: 70px; }
   .game-leaders { gap: 4px; }
   .leader-name { font-size: 11px; }
   .leader-jersey { width: 24px; height: 24px; font-size: 9px; }
@@ -380,6 +402,22 @@ footer {
 // PPG, oPPG, Pace, OffRtg, DefRtg, NetRtg, W/L, Streaks, L10 = ALL REAL
 // Elo calculated from win%. Four Factors not available from this source.
 // Home/Away splits are REAL from standings — do NOT overwrite with estimates.
+
+// NBA Team IDs for CDN logo images
+const TEAM_LOGO = {
+  ATL: 1610612737, BOS: 1610612738, BKN: 1610612751, CHO: 1610612766,
+  CHI: 1610612741, CLE: 1610612739, DAL: 1610612742, DEN: 1610612743,
+  DET: 1610612765, GSW: 1610612744, HOU: 1610612745, IND: 1610612754,
+  LAC: 1610612746, LAL: 1610612747, MEM: 1610612763, MIA: 1610612748,
+  MIL: 1610612749, MIN: 1610612750, NOP: 1610612740, NYK: 1610612752,
+  OKC: 1610612760, ORL: 1610612753, PHI: 1610612755, PHX: 1610612756,
+  POR: 1610612757, SAC: 1610612758, SAS: 1610612759, TOR: 1610612761,
+  UTA: 1610612762, WAS: 1610612764,
+};
+function teamLogo(key) {
+  const id = TEAM_LOGO[key];
+  return id ? `https://cdn.nba.com/logos/nba/${id}/global/L/logo.png` : '';
+}
 
 const TEAMS = {
   OKC: { name: "Thunder", city: "Oklahoma City", conf: "West", w: 55, l: 15, homeW: 30, homeL: 5, awayW: 25, awayL: 10, elo: 1759, netRtg: 11.0, offRtg: 118.4, defRtg: 107.4, efg: 0, tov: 0, oreb: 0, ftRate: 0, pace: 99.4, ppg: 118.5, papg: 107.5, streak: "W10", last10: "10-0" },
@@ -947,13 +985,10 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
   const isLive = game.statusNum === 2;
   const isFinal = game.statusNum === 3;
 
-  // Parse game clock for live display
   function formatGameClock() {
     if (!isLive) return '';
     const status = game.status || '';
-    // If CDN gives us gameStatusText like "Q2 5:22" or "Halftime" or "END Q3", use it
     if (status.match(/^(Q\d|OT|Half|End)/i)) return status;
-    // Build from period + gameClock fields
     if (game.period > 0) {
       const clockStr = game.gameClock || '';
       const clockMatch = clockStr.match(/PT(\d+)M([\d.]+)S/);
@@ -974,6 +1009,19 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
   const homeLeader = game.leaders?.home;
   const hasLeaders = (isLive || isFinal) && (awayLeader || homeLeader);
 
+  // Build YouTube highlight search URL for Final games
+  function getHighlightUrl() {
+    const awayName = away.name;
+    const homeName = home.name;
+    const today = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Los_Angeles" });
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${awayName} vs ${homeName} highlights ${today}`)}`;
+  }
+  function getRecapUrl() {
+    const awayName = away.name;
+    const homeName = home.name;
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${awayName} ${homeName} full game highlights NBA`)}`;
+  }
+
   return (
     <div className="game-card">
       <div className="game-card-header">
@@ -990,8 +1038,14 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
       <div className="game-card-body">
         <div className="matchup-row">
           <div className="team-side away">
-            <div className="team-name">{away.city} {away.name}</div>
-            <div className="team-record">{away.w}-{away.l} • {away.streak}</div>
+            <div className="team-header">
+              <img className="team-logo" src={teamLogo(pred.awayKey)} alt=""
+                onError={(e) => { e.target.style.display = 'none'; }} />
+              <div>
+                <div className="team-name">{away.city} {away.name}</div>
+                <div className="team-record">{away.w}-{away.l} • {away.streak}</div>
+              </div>
+            </div>
             {(isLive || isFinal) && <div className="team-name" style={{ fontSize: 24, marginTop: 4 }}>{game.away.score}</div>}
           </div>
 
@@ -1008,15 +1062,21 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
           </div>
 
           <div className="team-side home">
-            <div className="team-name">{home.city} {home.name}</div>
-            <div className="team-record">{home.w}-{home.l} • {home.streak}</div>
+            <div className="team-header home">
+              <img className="team-logo" src={teamLogo(pred.homeKey)} alt=""
+                onError={(e) => { e.target.style.display = 'none'; }} />
+              <div>
+                <div className="team-name">{home.city} {home.name}</div>
+                <div className="team-record">{home.w}-{home.l} • {home.streak}</div>
+              </div>
+            </div>
             {(isLive || isFinal) && <div className="team-name" style={{ fontSize: 24, marginTop: 4 }}>{game.home.score}</div>}
           </div>
         </div>
 
         {/* Quarter-by-quarter linescore */}
         {hasQuarters && (
-          <table className="linescore">
+          <table className="linescore" style={{ marginTop: 12 }}>
             <thead>
               <tr>
                 <th style={{ textAlign: 'left' }}>Team</th>
@@ -1028,7 +1088,7 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
             </thead>
             <tbody>
               <tr>
-                <td>{game.away.abbrev}</td>
+                <td>{away.city} {away.name}</td>
                 {game.away.periods.map((p, i) => (
                   <td key={i} className={isLive && i === game.period - 1 ? 'active-qtr' : ''}>
                     {p.score || (isLive && i >= game.period ? '-' : 0)}
@@ -1037,7 +1097,7 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
                 <td className="total-col">{game.away.score}</td>
               </tr>
               <tr>
-                <td>{game.home.abbrev}</td>
+                <td>{home.city} {home.name}</td>
                 {game.home.periods.map((p, i) => (
                   <td key={i} className={isLive && i === game.period - 1 ? 'active-qtr' : ''}>
                     {p.score || (isLive && i >= game.period ? '-' : 0)}
@@ -1073,6 +1133,18 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
           </div>
         )}
 
+        {/* Highlights — only for Final games */}
+        {isFinal && (
+          <div className="highlights-bar">
+            <a className="highlight-link" href={getHighlightUrl()} target="_blank" rel="noopener noreferrer">
+              <span className="hl-icon">▶</span> Game Highlights
+            </a>
+            <a className="highlight-link" href={getRecapUrl()} target="_blank" rel="noopener noreferrer">
+              <span className="hl-icon">📋</span> Full Recap
+            </a>
+          </div>
+        )}
+
         <div className="prediction-footer">
           <div className="pred-score">
             Projected: {pred.projAwayScore} — {pred.projHomeScore}
@@ -1102,18 +1174,11 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
         {isExpanded && (
           <div className="factor-breakdown">
             {Object.entries(pred.factors).map(([key, val]) => {
-              // Skip factors with zero weight (no data available)
               const w = pred.activeWeights[key];
               if (!w || w === 0) return null;
-
               const displayNames = {
-                elo: "Elo Rating",
-                netRating: "Net Rating",
-                fourFactors: "Four Factors",
-                momentum: "Momentum",
-                homeCourt: "Home Court",
-                rest: "Rest / B2B",
-                pythagorean: "Pythagorean",
+                elo: "Elo Rating", netRating: "Net Rating", fourFactors: "Four Factors",
+                momentum: "Momentum", homeCourt: "Home Court", rest: "Rest / B2B", pythagorean: "Pythagorean",
               };
               const pct = Math.round(w * 100);
               const label = `${displayNames[key] || key} (${pct}%)`;
