@@ -293,6 +293,57 @@ footer {
   border-top: 1px solid var(--border);
 }
 
+/* LINESCORE TABLE */
+.linescore {
+  width: 100%; border-collapse: collapse;
+  margin: 12px 0 0; font-size: 11px;
+}
+.linescore th {
+  padding: 4px 8px; text-align: center;
+  color: var(--text-secondary); font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.linescore td {
+  padding: 4px 8px; text-align: center;
+  border-bottom: 1px solid var(--sand-100);
+  font-variant-numeric: tabular-nums;
+}
+.linescore td:first-child { text-align: left; font-weight: 700; font-size: 12px; }
+.linescore td.total-col { font-weight: 900; font-size: 13px; }
+.linescore td.active-qtr { color: var(--accent-gold); font-weight: 700; }
+.linescore tr:last-child td { border-bottom: none; }
+
+/* GAME LEADERS */
+.game-leaders {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-top: 10px;
+  padding-top: 10px; border-top: 1px solid var(--border);
+}
+.leader-side { display: flex; align-items: center; gap: 8px; }
+.leader-side.home { justify-content: flex-end; text-align: right; }
+.leader-info { min-width: 0; }
+.leader-name { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.leader-stats { font-size: 11px; color: var(--text-secondary); font-weight: 600; font-variant-numeric: tabular-nums; }
+.leader-jersey {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 900; flex-shrink: 0;
+}
+.leader-jersey.away { background: rgba(58,110,165,0.12); color: var(--accent-blue); }
+.leader-jersey.home { background: rgba(196,154,60,0.12); color: var(--accent-gold); }
+
+/* GAME CLOCK */
+.game-clock {
+  font-size: 11px; font-weight: 700; color: var(--loss-red);
+  display: flex; align-items: center; gap: 4px;
+}
+.game-clock .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--loss-red); animation: pulse 1.5s infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
 /* RESPONSIVE */
 @media (max-width: 600px) {
   .logo { font-size: 22px; }
@@ -303,6 +354,11 @@ footer {
   .method-grid { grid-template-columns: 1fr 1fr; }
   .track-summary { grid-template-columns: 1fr 1fr; }
   .tier-grid { grid-template-columns: 1fr 1fr !important; }
+  .linescore { font-size: 10px; }
+  .linescore th, .linescore td { padding: 3px 5px; }
+  .game-leaders { gap: 4px; }
+  .leader-name { font-size: 11px; }
+  .leader-jersey { width: 24px; height: 24px; font-size: 9px; }
 }
 </style>
 </head>
@@ -386,15 +442,24 @@ const ENGINE = {
   },
 
   // Four Factors comparison — returns 0 to 1 probability
-  // Falls back to 0.5 (neutral) if Four Factors data not available (efg=0)
+  // Uses A4F (Adjusted Four Factors composite from NBAstuffer) if available,
+  // falls back to individual eFG/TOV/OREB/FT if available, else 0.5 (neutral)
   fourFactorsProb(teamA, teamB) {
-    if (teamA.efg === 0 || teamB.efg === 0) return 0.5; // no data, neutral
-    const efgDiff = (teamA.efg - teamB.efg) * 100;
-    const tovDiff = (teamB.tov - teamA.tov) * 100;
-    const orebDiff = (teamA.oreb - teamB.oreb) * 100;
-    const ftDiff = (teamA.ftRate - teamB.ftRate) * 100;
-    const composite = efgDiff * 0.40 + tovDiff * 0.25 + orebDiff * 0.20 + ftDiff * 0.15;
-    return 1 / (1 + Math.pow(10, -composite / 3));
+    // Priority 1: A4F composite (single number, higher = better)
+    if (teamA.a4f && teamB.a4f && teamA.a4f !== 0 && teamB.a4f !== 0) {
+      const diff = teamA.a4f - teamB.a4f;
+      return 1 / (1 + Math.pow(10, -diff / 3));
+    }
+    // Priority 2: Individual Four Factors
+    if (teamA.efg !== 0 && teamB.efg !== 0) {
+      const efgDiff = (teamA.efg - teamB.efg) * 100;
+      const tovDiff = (teamB.tov - teamA.tov) * 100;
+      const orebDiff = (teamA.oreb - teamB.oreb) * 100;
+      const ftDiff = (teamA.ftRate - teamB.ftRate) * 100;
+      const composite = efgDiff * 0.40 + tovDiff * 0.25 + orebDiff * 0.20 + ftDiff * 0.15;
+      return 1 / (1 + Math.pow(10, -composite / 3));
+    }
+    return 0.5; // no data, neutral
   },
 
   // Momentum score from last 10 and streak
@@ -467,7 +532,9 @@ const ENGINE = {
     const W = this.WEIGHTS;
 
     // Check data availability
-    const hasFF = away.efg !== 0 && home.efg !== 0;
+    // Four Factors available if either A4F composite OR individual eFG% data exists
+    const hasFF = (away.a4f && home.a4f && away.a4f !== 0 && home.a4f !== 0) ||
+                  (away.efg !== 0 && home.efg !== 0);
     const hasB2B = awayB2B || homeB2B; // If neither team is B2B, rest is neutral dead weight
 
     // Redistribute unavailable factors' weight proportionally to active factors
@@ -620,13 +687,23 @@ async function fetchTodaysGames() {
             (String(g.gameStatusText || '').includes('Final') ? 3 :
              String(g.gameStatusText || '').match(/^\d/) ? 2 : 1),
           time: g.gameTimeUTC,
+          period: g.period || 0,
+          gameClock: g.gameClock || '',
           away: {
             abbrev: g.awayTeam.teamTricode,
             score: g.awayTeam.score || 0,
+            periods: g.awayTeam.periods || [],
+            timeouts: g.awayTeam.timeoutsRemaining,
           },
           home: {
             abbrev: g.homeTeam.teamTricode,
             score: g.homeTeam.score || 0,
+            periods: g.homeTeam.periods || [],
+            timeouts: g.homeTeam.timeoutsRemaining,
+          },
+          leaders: {
+            away: g.gameLeaders?.awayLeaders || null,
+            home: g.gameLeaders?.homeLeaders || null,
           },
         }));
       }
@@ -725,6 +802,8 @@ async function fetchLiveStats() {
         TEAMS[t.key].papg = t.papg;
         TEAMS[t.key].streak = t.streak;
         TEAMS[t.key].last10 = t.last10;
+        // A4F (Adjusted Four Factors) — activates the 15% Four Factors engine weight
+        if (t.a4f && t.a4f !== 0) TEAMS[t.key].a4f = t.a4f;
         updated++;
       }
     });
@@ -868,10 +947,41 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
   const isLive = game.statusNum === 2;
   const isFinal = game.statusNum === 3;
 
+  // Parse game clock for live display
+  function formatGameClock() {
+    if (!isLive) return '';
+    const status = game.status || '';
+    // If CDN gives us gameStatusText like "Q2 5:22" or "Halftime" or "END Q3", use it
+    if (status.match(/^(Q\d|OT|Half|End)/i)) return status;
+    // Build from period + gameClock fields
+    if (game.period > 0) {
+      const clockStr = game.gameClock || '';
+      const clockMatch = clockStr.match(/PT(\d+)M([\d.]+)S/);
+      const qtr = game.period <= 4 ? `Q${game.period}` : `OT${game.period - 4}`;
+      if (clockMatch) {
+        const mins = parseInt(clockMatch[1]);
+        const secs = Math.floor(parseFloat(clockMatch[2]));
+        if (mins === 0 && secs === 0) return `END ${qtr}`;
+        return `${qtr} ${mins}:${secs.toString().padStart(2, '0')}`;
+      }
+      return qtr;
+    }
+    return 'LIVE';
+  }
+
+  const hasQuarters = (isLive || isFinal) && game.away.periods && game.away.periods.length > 0;
+  const awayLeader = game.leaders?.away;
+  const homeLeader = game.leaders?.home;
+  const hasLeaders = (isLive || isFinal) && (awayLeader || homeLeader);
+
   return (
     <div className="game-card">
       <div className="game-card-header">
-        <span>{isLive ? "🔴 LIVE" : isFinal ? "FINAL" : convertToPacific(game.status)}</span>
+        <span>
+          {isLive ? (
+            <span className="game-clock"><span className="dot"></span> {formatGameClock()}</span>
+          ) : isFinal ? "FINAL" : convertToPacific(game.status)}
+        </span>
         <span className={`confidence-badge confidence-${pred.confidence.toLowerCase()}`}>
           {pred.confidence} CONFIDENCE
         </span>
@@ -886,7 +996,7 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
           </div>
 
           <div className="vs-block">
-            <div className="vs-text">{isFinal ? "Final" : isLive ? "Live" : "vs"}</div>
+            <div className="vs-text">{isFinal ? "Final" : isLive ? formatGameClock() : "vs"}</div>
             <div className="prob-bar-container">
               <div className="prob-bar-away" style={{ width: `${pred.awayWinProb}%` }}></div>
               <div className="prob-bar-home" style={{ width: `${pred.homeWinProb}%` }}></div>
@@ -903,6 +1013,65 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
             {(isLive || isFinal) && <div className="team-name" style={{ fontSize: 24, marginTop: 4 }}>{game.home.score}</div>}
           </div>
         </div>
+
+        {/* Quarter-by-quarter linescore */}
+        {hasQuarters && (
+          <table className="linescore">
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>Team</th>
+                {game.away.periods.map((p, i) => (
+                  <th key={i}>{p.periodType === 'REGULAR' ? `Q${p.period}` : `OT${p.period - 4}`}</th>
+                ))}
+                <th>T</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{game.away.abbrev}</td>
+                {game.away.periods.map((p, i) => (
+                  <td key={i} className={isLive && i === game.period - 1 ? 'active-qtr' : ''}>
+                    {p.score || (isLive && i >= game.period ? '-' : 0)}
+                  </td>
+                ))}
+                <td className="total-col">{game.away.score}</td>
+              </tr>
+              <tr>
+                <td>{game.home.abbrev}</td>
+                {game.home.periods.map((p, i) => (
+                  <td key={i} className={isLive && i === game.period - 1 ? 'active-qtr' : ''}>
+                    {p.score || (isLive && i >= game.period ? '-' : 0)}
+                  </td>
+                ))}
+                <td className="total-col">{game.home.score}</td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+
+        {/* Game Leaders */}
+        {hasLeaders && (
+          <div className="game-leaders">
+            {awayLeader ? (
+              <div className="leader-side away">
+                <div className="leader-jersey away">#{awayLeader.jerseyNum}</div>
+                <div className="leader-info">
+                  <div className="leader-name">{awayLeader.name}</div>
+                  <div className="leader-stats">{awayLeader.points}p {awayLeader.rebounds}r {awayLeader.assists}a</div>
+                </div>
+              </div>
+            ) : <div></div>}
+            {homeLeader ? (
+              <div className="leader-side home">
+                <div className="leader-info">
+                  <div className="leader-name">{homeLeader.name}</div>
+                  <div className="leader-stats">{homeLeader.points}p {homeLeader.rebounds}r {homeLeader.assists}a</div>
+                </div>
+                <div className="leader-jersey home">#{homeLeader.jerseyNum}</div>
+              </div>
+            ) : <div></div>}
+          </div>
+        )}
 
         <div className="prediction-footer">
           <div className="pred-score">
