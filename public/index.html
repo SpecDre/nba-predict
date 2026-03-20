@@ -372,6 +372,26 @@ footer {
   background: #fff3e0; color: #e65100; display: inline-block;
 }
 
+/* LAST PLAY / HEADLINE */
+.last-play {
+  margin-top: 8px; padding: 8px 12px;
+  background: var(--sand-50); border-radius: 6px;
+  border-left: 3px solid var(--accent-gold);
+  font-size: 12px; color: var(--text-secondary); line-height: 1.5;
+}
+.last-play-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--sand-500); margin-bottom: 2px;
+}
+.last-play-text { font-weight: 600; color: var(--text); }
+.game-headline {
+  margin-top: 8px; padding: 8px 12px;
+  background: var(--sand-50); border-radius: 6px;
+  border-left: 3px solid var(--accent-blue);
+  font-size: 12px; line-height: 1.5;
+}
+.game-headline-text { font-weight: 600; color: var(--text); }
+
 /* RESPONSIVE */
 @media (max-width: 600px) {
   .logo { font-size: 22px; }
@@ -423,6 +443,15 @@ function teamLogo(key) {
   const abbr = ESPN_ABBREV[key];
   return abbr ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${abbr}.png&w=100&h=100` : '';
 }
+
+// Reverse map: our key → ESPN's scoreboard abbreviation (for matching ESPN data)
+const ESPN_ABBREV_REVERSE = {
+  ATL: 'ATL', BOS: 'BOS', BKN: 'BKN', CHO: 'CHA', CHI: 'CHI', CLE: 'CLE',
+  DAL: 'DAL', DEN: 'DEN', DET: 'DET', GSW: 'GS', HOU: 'HOU', IND: 'IND',
+  LAC: 'LAC', LAL: 'LAL', MEM: 'MEM', MIA: 'MIA', MIL: 'MIL', MIN: 'MIN',
+  NOP: 'NO', NYK: 'NY', OKC: 'OKC', ORL: 'ORL', PHI: 'PHI', PHX: 'PHX',
+  POR: 'POR', SAC: 'SAC', SAS: 'SA', TOR: 'TOR', UTA: 'UTAH', WAS: 'WSH',
+};
 
 const TEAMS = {
   OKC: { name: "Thunder", city: "Oklahoma City", conf: "West", w: 55, l: 15, homeW: 30, homeL: 5, awayW: 25, awayL: 10, elo: 1759, netRtg: 11.0, offRtg: 118.4, defRtg: 107.4, efg: 0, tov: 0, oreb: 0, ftRate: 0, pace: 99.4, ppg: 118.5, papg: 107.5, streak: "W10", last10: "10-0" },
@@ -869,6 +898,21 @@ function App() {
   const [loading, setLoading] = React.useState(true);
   const [expanded, setExpanded] = React.useState({});
   const [dataSource, setDataSource] = React.useState("embedded"); // "live" or "embedded"
+  const [espnData, setEspnData] = React.useState({}); // keyed by "AWAY @ HOME" shortName
+
+  // Fetch ESPN last play + headlines
+  function fetchESPN() {
+    fetch('/api/espn').then(r => r.json()).then(data => {
+      if (data.success && data.games) {
+        const map = {};
+        data.games.forEach(g => {
+          // Key by both ESPN abbrevs for matching
+          map[g.name] = g;
+        });
+        setEspnData(map);
+      }
+    }).catch(() => {});
+  }
 
   React.useEffect(() => {
     // Fetch live stats first (background), then load games
@@ -881,13 +925,17 @@ function App() {
       setLoading(false);
     });
 
-    // Auto-refresh scores every 30 seconds for live games
-    const interval = setInterval(() => {
+    // Initial ESPN fetch
+    fetchESPN();
+
+    // Auto-refresh scores every 30 seconds + ESPN every 15 seconds for live play updates
+    const scoreInterval = setInterval(() => {
       fetchTodaysGames().then(g => {
         if (g && g.length > 0) setGames(g);
       }).catch(() => {});
     }, 30000);
-    return () => clearInterval(interval);
+    const espnInterval = setInterval(fetchESPN, 15000);
+    return () => { clearInterval(scoreInterval); clearInterval(espnInterval); };
   }, []);
 
   const todayStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "America/Los_Angeles" });
@@ -936,7 +984,7 @@ function App() {
 
       <main>
         <div className="container">
-          {tab === "games" && <GamesTab loading={loading} predictions={predictions} expanded={expanded} setExpanded={setExpanded} />}
+          {tab === "games" && <GamesTab loading={loading} predictions={predictions} expanded={expanded} setExpanded={setExpanded} espnData={espnData} />}
           {tab === "rankings" && <RankingsTab />}
           {tab === "overunder" && <OverUnderTab predictions={predictions} />}
           {tab === "track" && <TrackRecordTab predictions={predictions} games={games} />}
@@ -955,7 +1003,7 @@ function App() {
 }
 
 
-function GamesTab({ loading, predictions, expanded, setExpanded }) {
+function GamesTab({ loading, predictions, expanded, setExpanded, espnData }) {
   if (loading) return (
     <div className="loading">
       <div className="loading-spinner"></div>
@@ -971,12 +1019,25 @@ function GamesTab({ loading, predictions, expanded, setExpanded }) {
     </div>
   );
 
+  // Match ESPN data to our games by team abbreviations
+  function findEspn(game, pred) {
+    // ESPN uses shortName like "PHI @ SAC" — try matching
+    for (const [key, val] of Object.entries(espnData)) {
+      if (key.includes(game.away.abbrev) && key.includes(game.home.abbrev)) return val;
+      // Also try our mapped keys
+      const awayESPN = ESPN_ABBREV_REVERSE[pred.awayKey];
+      const homeESPN = ESPN_ABBREV_REVERSE[pred.homeKey];
+      if (awayESPN && homeESPN && key.includes(awayESPN) && key.includes(homeESPN)) return val;
+    }
+    return null;
+  }
+
   return (
     <div>
       <h2 className="section-title">Today's Predictions</h2>
       <div className="games-grid">
         {predictions.map(({ game, pred }) => (
-          <GameCard key={game.id} game={game} pred={pred} isExpanded={expanded[game.id]} onToggle={() => setExpanded(prev => ({ ...prev, [game.id]: !prev[game.id] }))} />
+          <GameCard key={game.id} game={game} pred={pred} isExpanded={expanded[game.id]} onToggle={() => setExpanded(prev => ({ ...prev, [game.id]: !prev[game.id] }))} espn={findEspn(game, pred)} />
         ))}
       </div>
     </div>
@@ -984,7 +1045,7 @@ function GamesTab({ loading, predictions, expanded, setExpanded }) {
 }
 
 
-function GameCard({ game, pred, isExpanded, onToggle }) {
+function GameCard({ game, pred, isExpanded, onToggle, espn }) {
   const away = TEAMS[pred.awayKey];
   const home = TEAMS[pred.homeKey];
   if (!away || !home) return null;
@@ -1142,6 +1203,21 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
                 <div className="leader-jersey home">#{homeLeader.jerseyNum}</div>
               </div>
             ) : <div></div>}
+          </div>
+        )}
+
+        {/* Last Play — live games only */}
+        {isLive && espn?.lastPlay && (
+          <div className="last-play">
+            <div className="last-play-label">Last Play</div>
+            <div className="last-play-text">{espn.lastPlay}</div>
+          </div>
+        )}
+
+        {/* Game Headline — final games only */}
+        {isFinal && espn?.headline && (
+          <div className="game-headline">
+            <div className="game-headline-text">{espn.headline}</div>
           </div>
         )}
 
