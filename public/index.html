@@ -301,6 +301,8 @@ footer {
   .team-name { font-size: 15px; }
   .vs-block { min-width: 70px; }
   .method-grid { grid-template-columns: 1fr 1fr; }
+  .track-summary { grid-template-columns: 1fr 1fr; }
+  .tier-grid { grid-template-columns: 1fr 1fr !important; }
 }
 </style>
 </head>
@@ -798,7 +800,7 @@ function App() {
           {tab === "games" && <GamesTab loading={loading} predictions={predictions} expanded={expanded} setExpanded={setExpanded} />}
           {tab === "rankings" && <RankingsTab />}
           {tab === "overunder" && <OverUnderTab predictions={predictions} />}
-          {tab === "track" && <TrackRecordTab />}
+          {tab === "track" && <TrackRecordTab predictions={predictions} games={games} />}
           {tab === "method" && <MethodologyTab />}
         </div>
       </main>
@@ -1043,40 +1045,327 @@ function OverUnderTab({ predictions }) {
 }
 
 
-function TrackRecordTab() {
+// ─── TRACK RECORD SYSTEM ──────────────────────────────────────
+
+const TRACKER = {
+  STORAGE_KEY: 'nba_predict_v3_track',
+
+  // Load all tracked data from localStorage
+  load() {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      return raw ? JSON.parse(raw) : { predictions: {}, results: [] };
+    } catch { return { predictions: {}, results: [] }; }
+  },
+
+  save(data) {
+    try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data)); } catch {}
+  },
+
+  // Save today's predictions (called once when games load)
+  savePredictions(predictions) {
+    const data = this.load();
+    predictions.forEach(({ game, pred }) => {
+      if (!pred || !game.id) return;
+      const key = `${game.id}`;
+      // Don't overwrite if already saved
+      if (data.predictions[key]) return;
+      data.predictions[key] = {
+        gameId: game.id,
+        date: new Date().toISOString().slice(0, 10),
+        awayKey: pred.awayKey,
+        homeKey: pred.homeKey,
+        awayTeam: TEAMS[pred.awayKey]?.city + ' ' + TEAMS[pred.awayKey]?.name,
+        homeTeam: TEAMS[pred.homeKey]?.city + ' ' + TEAMS[pred.homeKey]?.name,
+        pick: pred.pick,
+        pickName: TEAMS[pred.pick]?.city + ' ' + TEAMS[pred.pick]?.name,
+        awayWinProb: pred.awayWinProb,
+        homeWinProb: pred.homeWinProb,
+        projAwayScore: pred.projAwayScore,
+        projHomeScore: pred.projHomeScore,
+        spread: pred.spread,
+        confidence: pred.confidence,
+        isTossUp: pred.isTossUp || false,
+        scored: false,
+      };
+    });
+    this.save(data);
+  },
+
+  // Check for completed games and score predictions
+  scoreCompletedGames(games) {
+    const data = this.load();
+    let newResults = 0;
+
+    games.forEach(game => {
+      const key = `${game.id}`;
+      const pred = data.predictions[key];
+      if (!pred || pred.scored) return;
+
+      // Only score Final games
+      const isFinal = game.statusNum === 3 ||
+        (typeof game.status === 'string' && game.status.includes('Final'));
+      if (!isFinal) return;
+
+      const awayScore = parseInt(game.away.score) || 0;
+      const homeScore = parseInt(game.home.score) || 0;
+      if (awayScore === 0 && homeScore === 0) return; // No score data
+
+      const actualWinner = homeScore > awayScore ? pred.homeKey : pred.awayKey;
+      const pickCorrect = pred.pick === actualWinner;
+      const actualSpread = homeScore - awayScore; // positive = home won
+      const predictedSpread = pred.spread; // positive = home favored
+      const spreadError = Math.abs(actualSpread - predictedSpread);
+      const scoreError = Math.abs(awayScore - pred.projAwayScore) + Math.abs(homeScore - pred.projHomeScore);
+
+      // Mark as scored
+      pred.scored = true;
+
+      // Store result
+      data.results.push({
+        gameId: game.id,
+        date: pred.date,
+        awayTeam: pred.awayTeam,
+        homeTeam: pred.homeTeam,
+        pickName: pred.pickName,
+        pick: pred.pick,
+        confidence: pred.confidence,
+        isTossUp: pred.isTossUp,
+        awayWinProb: pred.awayWinProb,
+        homeWinProb: pred.homeWinProb,
+        projAwayScore: pred.projAwayScore,
+        projHomeScore: pred.projHomeScore,
+        actualAwayScore: awayScore,
+        actualHomeScore: homeScore,
+        actualWinner,
+        actualWinnerName: TEAMS[actualWinner]?.city + ' ' + TEAMS[actualWinner]?.name,
+        pickCorrect,
+        spreadError: Math.round(spreadError * 10) / 10,
+        scoreError,
+      });
+
+      newResults++;
+    });
+
+    // Keep only last 200 results
+    if (data.results.length > 200) {
+      data.results = data.results.slice(-200);
+    }
+
+    this.save(data);
+    return newResults;
+  },
+
+  // Compute accuracy stats from all results
+  getStats() {
+    const data = this.load();
+    const results = data.results;
+    if (results.length === 0) return null;
+
+    const total = results.length;
+    const correct = results.filter(r => r.pickCorrect).length;
+    const accuracy = ((correct / total) * 100).toFixed(1);
+
+    const spreadErrors = results.map(r => r.spreadError);
+    const avgSpreadError = (spreadErrors.reduce((a, b) => a + b, 0) / total).toFixed(1);
+
+    // High confidence games only
+    const highConf = results.filter(r => r.confidence === 'HIGH');
+    const highConfCorrect = highConf.filter(r => r.pickCorrect).length;
+    const highConfAcc = highConf.length > 0 ? ((highConfCorrect / highConf.length) * 100).toFixed(1) : '—';
+
+    // Toss-up games
+    const tossUps = results.filter(r => r.isTossUp || r.confidence === 'TOSS-UP');
+    const tossUpCorrect = tossUps.filter(r => r.pickCorrect).length;
+    const tossUpAcc = tossUps.length > 0 ? ((tossUpCorrect / tossUps.length) * 100).toFixed(1) : '—';
+
+    // By confidence tier
+    const tiers = {};
+    ['HIGH', 'MED', 'LOW', 'TOSS-UP'].forEach(tier => {
+      const t = results.filter(r => r.confidence === tier);
+      tiers[tier] = {
+        total: t.length,
+        correct: t.filter(r => r.pickCorrect).length,
+        accuracy: t.length > 0 ? ((t.filter(r => r.pickCorrect).length / t.length) * 100).toFixed(1) : '—',
+      };
+    });
+
+    // Recent results (last 30)
+    const recent = results.slice(-30).reverse();
+
+    // Streak
+    let currentStreak = 0;
+    let streakType = '';
+    for (let i = results.length - 1; i >= 0; i--) {
+      const r = results[i];
+      if (i === results.length - 1) {
+        streakType = r.pickCorrect ? 'W' : 'L';
+        currentStreak = 1;
+      } else if ((r.pickCorrect && streakType === 'W') || (!r.pickCorrect && streakType === 'L')) {
+        currentStreak++;
+      } else break;
+    }
+
+    return {
+      total, correct, accuracy,
+      avgSpreadError,
+      highConfAcc, highConfTotal: highConf.length,
+      tossUpAcc, tossUpTotal: tossUps.length,
+      tiers,
+      recent,
+      streak: `${streakType}${currentStreak}`,
+    };
+  },
+
+  // Reset all data
+  reset() {
+    localStorage.removeItem(this.STORAGE_KEY);
+  },
+};
+
+
+function TrackRecordTab({ predictions, games }) {
+  const [stats, setStats] = React.useState(null);
+  const [showReset, setShowReset] = React.useState(false);
+
+  React.useEffect(() => {
+    // Save today's predictions
+    if (predictions && predictions.length > 0) {
+      TRACKER.savePredictions(predictions);
+    }
+    // Score any completed games
+    if (games && games.length > 0) {
+      TRACKER.scoreCompletedGames(games);
+    }
+    // Load stats
+    setStats(TRACKER.getStats());
+  }, [predictions, games]);
+
+  const handleReset = () => {
+    TRACKER.reset();
+    setStats(null);
+    setShowReset(false);
+  };
+
   return (
     <div>
-      <h2 className="section-title">Track Record</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h2 className="section-title" style={{ marginBottom: 0 }}>Track Record</h2>
+        <button onClick={() => setShowReset(!showReset)} style={{
+          fontSize: 11, color: "var(--text-secondary)", background: "none", border: "1px solid var(--border)",
+          padding: "4px 10px", borderRadius: 4, cursor: "pointer", fontFamily: "inherit"
+        }}>Reset Data</button>
+      </div>
+
+      {showReset && (
+        <div style={{ background: "#fff3f3", border: "1px solid #fcc", borderRadius: 6, padding: 12, marginBottom: 16, fontSize: 13 }}>
+          This will erase all tracked predictions and results. Are you sure?
+          <button onClick={handleReset} style={{
+            marginLeft: 12, background: "var(--loss-red)", color: "#fff", border: "none",
+            padding: "4px 12px", borderRadius: 4, cursor: "pointer", fontFamily: "inherit", fontWeight: 700
+          }}>Yes, Reset</button>
+          <button onClick={() => setShowReset(false)} style={{
+            marginLeft: 8, background: "var(--sand-200)", color: "var(--text)", border: "none",
+            padding: "4px 12px", borderRadius: 4, cursor: "pointer", fontFamily: "inherit"
+          }}>Cancel</button>
+        </div>
+      )}
+
       <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 16, lineHeight: 1.6 }}>
-        v3 engine accuracy tracking. Results accumulate after each game day. 
+        v3 engine accuracy tracking. Results accumulate automatically as games complete.
         Research suggests the ceiling for NBA prediction accuracy is 68-72%.
       </p>
-      <div className="track-summary">
-        <div className="track-stat">
-          <div className="track-stat-value">—</div>
-          <div className="track-stat-label">Win/Loss Accuracy</div>
-        </div>
-        <div className="track-stat">
-          <div className="track-stat-value">—</div>
-          <div className="track-stat-label">Games Tracked</div>
-        </div>
-        <div className="track-stat">
-          <div className="track-stat-value">—</div>
-          <div className="track-stat-label">Avg Spread Error</div>
-        </div>
-        <div className="track-stat">
-          <div className="track-stat-value">—</div>
-          <div className="track-stat-label">High Conf Accuracy</div>
-        </div>
-      </div>
-      <div className="track-log">
-        <div className="track-log-header">Recent Results</div>
-        <div className="track-log-empty">
-          No results yet. After tonight's games are completed, results will start tracking here.
-          <br /><br />
-          The engine needs a few game days to build a meaningful sample.
-        </div>
-      </div>
+
+      {!stats ? (
+        <React.Fragment>
+          <div className="track-summary">
+            <div className="track-stat"><div className="track-stat-value">—</div><div className="track-stat-label">Win/Loss Accuracy</div></div>
+            <div className="track-stat"><div className="track-stat-value">0</div><div className="track-stat-label">Games Tracked</div></div>
+            <div className="track-stat"><div className="track-stat-value">—</div><div className="track-stat-label">Avg Spread Error</div></div>
+            <div className="track-stat"><div className="track-stat-value">—</div><div className="track-stat-label">High Conf Accuracy</div></div>
+          </div>
+          <div className="track-log">
+            <div className="track-log-header">Recent Results</div>
+            <div className="track-log-empty">
+              Waiting for today's games to finish. Predictions are saved — once games go Final, results will appear here automatically.
+            </div>
+          </div>
+        </React.Fragment>
+      ) : (
+        <React.Fragment>
+          <div className="track-summary">
+            <div className="track-stat">
+              <div className="track-stat-value" style={{ color: parseFloat(stats.accuracy) >= 60 ? "var(--win-green)" : "var(--accent-gold)" }}>
+                {stats.accuracy}%
+              </div>
+              <div className="track-stat-label">Win/Loss ({stats.correct}/{stats.total})</div>
+            </div>
+            <div className="track-stat">
+              <div className="track-stat-value">{stats.total}</div>
+              <div className="track-stat-label">Games Tracked</div>
+            </div>
+            <div className="track-stat">
+              <div className="track-stat-value">{stats.avgSpreadError}</div>
+              <div className="track-stat-label">Avg Spread Error</div>
+            </div>
+            <div className="track-stat">
+              <div className="track-stat-value" style={{ color: "var(--win-green)" }}>
+                {stats.highConfAcc}{stats.highConfAcc !== '—' ? '%' : ''}
+              </div>
+              <div className="track-stat-label">High Conf ({stats.highConfTotal}g)</div>
+            </div>
+          </div>
+
+          {/* Confidence tier breakdown */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 20 }}>
+            {['HIGH', 'MED', 'LOW', 'TOSS-UP'].map(tier => {
+              const t = stats.tiers[tier];
+              return (
+                <div key={tier} style={{
+                  background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6,
+                  padding: "8px 12px", textAlign: "center", fontSize: 12
+                }}>
+                  <div style={{ fontWeight: 700, color: "var(--text-secondary)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>{tier}</div>
+                  <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, marginTop: 2 }}>
+                    {t.accuracy}{t.accuracy !== '—' ? '%' : ''}
+                  </div>
+                  <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{t.correct}/{t.total}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Recent results log */}
+          <div className="track-log">
+            <div className="track-log-header">Recent Results ({stats.recent.length} games) • Streak: {stats.streak}</div>
+            <div style={{ maxHeight: 500, overflowY: "auto" }}>
+              {stats.recent.map((r, i) => (
+                <div key={i} style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "10px 16px", borderBottom: "1px solid var(--border)",
+                  background: i % 2 === 0 ? "#fff" : "var(--sand-50)"
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>
+                      {r.awayTeam} {r.actualAwayScore} @ {r.homeTeam} {r.actualHomeScore}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+                      {r.date} • Picked {r.pickName} ({r.confidence}) • Proj: {r.projAwayScore}-{r.projHomeScore}
+                    </div>
+                  </div>
+                  <div style={{
+                    fontWeight: 900, fontSize: 14, padding: "4px 10px", borderRadius: 4, marginLeft: 8,
+                    background: r.pickCorrect ? "rgba(45,143,78,0.12)" : "rgba(204,68,68,0.12)",
+                    color: r.pickCorrect ? "var(--win-green)" : "var(--loss-red)"
+                  }}>
+                    {r.pickCorrect ? "✓ HIT" : "✗ MISS"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </React.Fragment>
+      )}
     </div>
   );
 }
