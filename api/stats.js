@@ -78,6 +78,7 @@ const TEAM_CITIES = {
 };
 
 function calcElo(w, l) {
+  if (w + l === 0) return 1500; // no games played, league average
   const pct = w / (w + l);
   if (pct <= 0.01) return 1200;
   if (pct >= 0.99) return 1800;

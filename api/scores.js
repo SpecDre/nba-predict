@@ -6,7 +6,6 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=15'); // Cache 30s for live games
 
   const today = new Date();
-  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
   const dateSlash = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
 
   // Headers that mimic a browser (NBA blocks bare server requests)
@@ -86,9 +85,11 @@ export default async function handler(req, res) {
   }
 
   // Source 3: data.nba.com (legacy endpoint)
+  // NBA season year = current year if Oct-Dec, previous year if Jan-Sep
+  const seasonYear = today.getMonth() >= 9 ? today.getFullYear() : today.getFullYear() - 1;
   try {
     const legacyResp = await fetch(
-      `https://data.nba.com/data/10s/v2015/json/mobile_teams/nba/2025/scores/00_todays_scores.json`,
+      `https://data.nba.com/data/10s/v2015/json/mobile_teams/nba/${seasonYear}/scores/00_todays_scores.json`,
       { headers: browserHeaders, signal: AbortSignal.timeout(5000) }
     );
     if (legacyResp.ok) {
