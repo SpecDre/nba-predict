@@ -1,141 +1,117 @@
-const fetch = require('node-fetch');
+// /api/scores.js — Fetches today's NBA scoreboard
+// Tries multiple sources with proper headers to avoid IP blocks
 
-const NBA_BASE = 'https://stats.nba.com/stats';
-const HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-  'Referer': 'https://www.nba.com/',
-  'Accept': 'application/json',
-  'x-nba-stats-origin': 'stats',
-  'x-nba-stats-token': 'true',
-};
-
-const TEAM_MAP = {
-  1610612737:'ATL',1610612738:'BOS',1610612739:'CLE',1610612740:'NOP',
-  1610612741:'CHI',1610612742:'DAL',1610612743:'DEN',1610612744:'GSW',
-  1610612745:'HOU',1610612746:'LAC',1610612747:'LAL',1610612748:'MIA',
-  1610612749:'MIL',1610612750:'MIN',1610612751:'BKN',1610612752:'NYK',
-  1610612753:'ORL',1610612754:'IND',1610612755:'PHI',1610612756:'PHX',
-  1610612757:'POR',1610612758:'SAC',1610612759:'SAS',1610612760:'OKC',
-  1610612761:'TOR',1610612762:'UTA',1610612763:'MEM',1610612764:'WAS',
-  1610612765:'DET',1610612766:'CHA',
-};
-
-async function fetchNBA(endpoint, params = {}) {
-  const url = new URL(`${NBA_BASE}/${endpoint}`);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString(), { headers: HEADERS, timeout: 10000 });
-  if (!res.ok) throw new Error(`NBA API ${res.status}: ${res.statusText}`);
-  return res.json();
-}
-
-function parseNBAResponse(data, setIndex = 0) {
-  const set = data.resultSets[setIndex];
-  return set.rowSet.map(row => {
-    const obj = {};
-    set.headers.forEach((h, i) => obj[h] = row[i]);
-    return obj;
-  });
-}
-
-// Get scoreboard for a specific date
-async function getScoreboardForDate(dateStr) {
-  // dateStr format: MM/DD/YYYY
-  const data = await fetchNBA('scoreboardv2', {
-    GameDate: dateStr,
-    LeagueID: '00',
-    DayOffset: '0'
-  });
-
-  const games = parseNBAResponse(data, 0); // GameHeader
-  const lineScores = parseNBAResponse(data, 1); // LineScore
-
-  return { games, lineScores };
-}
-
-// Parse final scores from line scores
-function parseFinalScores(games, lineScores) {
-  const results = [];
-
-  for (const game of games) {
-    const gameId = game.GAME_ID;
-    const status = game.GAME_STATUS_ID; // 3 = Final
-
-    if (status !== 3) continue; // Only completed games
-
-    const homeId = game.HOME_TEAM_ID;
-    const awayId = game.VISITOR_TEAM_ID;
-    const homeAbbr = (typeof homeId === 'string' && homeId.length <= 3) ? homeId : (TEAM_MAP[homeId] || 'UNK');
-    const awayAbbr = (typeof awayId === 'string' && awayId.length <= 3) ? awayId : (TEAM_MAP[awayId] || 'UNK');
-
-    // Get scores from line scores
-    const homeLines = lineScores.filter(ls => ls.TEAM_ID === homeId && ls.GAME_ID === gameId);
-    const awayLines = lineScores.filter(ls => ls.TEAM_ID === awayId && ls.GAME_ID === gameId);
-
-    const homeScore = homeLines.length > 0 ? homeLines[0].PTS : null;
-    const awayScore = awayLines.length > 0 ? awayLines[0].PTS : null;
-
-    if (homeScore === null || awayScore === null) continue;
-
-    results.push({
-      gameId,
-      date: game.GAME_DATE_EST?.split('T')[0] || '',
-      homeTeam: homeAbbr,
-      awayTeam: awayAbbr,
-      homeScore,
-      awayScore,
-      totalScore: homeScore + awayScore,
-      winner: homeScore > awayScore ? homeAbbr : awayAbbr,
-      margin: Math.abs(homeScore - awayScore),
-    });
-  }
-
-  return results;
-}
-
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=1200');
+  res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=15'); // Cache 30s for live games
 
-  const { date, days } = req.query;
+  const today = new Date();
+  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+  const dateSlash = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
 
+  // Headers that mimic a browser (NBA blocks bare server requests)
+  const browserHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Referer': 'https://www.nba.com/',
+    'Origin': 'https://www.nba.com',
+  };
+
+  // Source 1: NBA CDN (most reliable, has the format we need)
   try {
-    // If specific date provided
-    if (date) {
-      const [y, m, d] = date.split('-');
-      const dateStr = `${parseInt(m)}/${parseInt(d)}/${y}`;
-      const { games, lineScores } = await getScoreboardForDate(dateStr);
-      const results = parseFinalScores(games, lineScores);
-      return res.status(200).json({ date, results, count: results.length });
-    }
-
-    // Default: fetch last N days (default 1 = yesterday)
-    const numDays = Math.min(parseInt(days) || 1, 7);
-    const allResults = [];
-
-    for (let i = 1; i <= numDays; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
-      const isoDate = d.toISOString().split('T')[0];
-
-      try {
-        const { games, lineScores } = await getScoreboardForDate(dateStr);
-        const results = parseFinalScores(games, lineScores);
-        allResults.push({ date: isoDate, results, count: results.length });
-      } catch (e) {
-        console.error(`Error fetching ${isoDate}:`, e.message);
-        allResults.push({ date: isoDate, results: [], count: 0, error: e.message });
+    const cdnResp = await fetch(
+      'https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json',
+      { headers: browserHeaders, signal: AbortSignal.timeout(5000) }
+    );
+    if (cdnResp.ok) {
+      const data = await cdnResp.json();
+      if (data.scoreboard && data.scoreboard.games) {
+        return res.status(200).json(data);
       }
     }
-
-    res.status(200).json({
-      days: numDays,
-      results: allResults,
-      totalGames: allResults.reduce((sum, d) => sum + d.count, 0),
-      timestamp: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error('Scores API Error:', err);
-    res.status(500).json({ error: err.message });
+  } catch (e) {
+    console.log('CDN source failed:', e.message);
   }
-};
+
+  // Source 2: NBA stats endpoint (older format)
+  try {
+    const statsResp = await fetch(
+      `https://stats.nba.com/stats/scoreboardv2?GameDate=${encodeURIComponent(dateSlash)}&LeagueID=00&DayOffset=0`,
+      { headers: { ...browserHeaders, 'x-nba-stats-origin': 'stats', 'x-nba-stats-token': 'true' }, signal: AbortSignal.timeout(5000) }
+    );
+    if (statsResp.ok) {
+      const data = await statsResp.json();
+      // Convert scoreboardv2 format to CDN format
+      if (data.resultSets && data.resultSets[0]) {
+        const gameHeaders = data.resultSets[0].headers;
+        const rows = data.resultSets[0].rowSet;
+        const lineHeaders = data.resultSets[1] ? data.resultSets[1].headers : [];
+        const lineRows = data.resultSets[1] ? data.resultSets[1].rowSet : [];
+
+        const games = [];
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const gameId = row[gameHeaders.indexOf('GAME_ID')];
+          const statusText = row[gameHeaders.indexOf('GAME_STATUS_TEXT')];
+          const statusNum = row[gameHeaders.indexOf('GAME_STATUS_ID')];
+          const homeId = row[gameHeaders.indexOf('HOME_TEAM_ID')];
+          const awayId = row[gameHeaders.indexOf('VISITOR_TEAM_ID')];
+
+          // Get scores from line score
+          let homeScore = 0, awayScore = 0;
+          let homeAbbrev = '', awayAbbrev = '';
+          lineRows.forEach(lr => {
+            const tid = lr[lineHeaders.indexOf('TEAM_ID')];
+            const abbrev = lr[lineHeaders.indexOf('TEAM_ABBREVIATION')];
+            const pts = lr[lineHeaders.indexOf('PTS')] || 0;
+            if (tid === homeId) { homeScore = pts; homeAbbrev = abbrev; }
+            if (tid === awayId) { awayScore = pts; awayAbbrev = abbrev; }
+          });
+
+          games.push({
+            gameId: gameId,
+            gameStatusText: statusText,
+            gameStatus: statusNum,
+            homeTeam: { teamTricode: homeAbbrev, score: homeScore },
+            awayTeam: { teamTricode: awayAbbrev, score: awayScore },
+          });
+        }
+
+        return res.status(200).json({ scoreboard: { games } });
+      }
+    }
+  } catch (e) {
+    console.log('Stats source failed:', e.message);
+  }
+
+  // Source 3: data.nba.com (legacy endpoint)
+  try {
+    const legacyResp = await fetch(
+      `https://data.nba.com/data/10s/v2015/json/mobile_teams/nba/2025/scores/00_todays_scores.json`,
+      { headers: browserHeaders, signal: AbortSignal.timeout(5000) }
+    );
+    if (legacyResp.ok) {
+      const data = await legacyResp.json();
+      if (data.gs && data.gs.g) {
+        const games = data.gs.g.map(g => ({
+          gameId: g.gid,
+          gameStatusText: g.stt,
+          gameStatus: g.stt.includes('Final') ? 3 : g.stt.includes(':') ? 1 : 2,
+          homeTeam: { teamTricode: g.h.ta, score: parseInt(g.h.s) || 0 },
+          awayTeam: { teamTricode: g.v.ta, score: parseInt(g.v.s) || 0 },
+        }));
+        return res.status(200).json({ scoreboard: { games } });
+      }
+    }
+  } catch (e) {
+    console.log('Legacy source failed:', e.message);
+  }
+
+  // All sources failed
+  res.status(200).json({
+    scoreboard: { games: [] },
+    error: 'All NBA score sources unavailable',
+    fallback: true,
+  });
+}
