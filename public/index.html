@@ -166,17 +166,22 @@ main { padding: 24px 0 60px; }
 .highlights-bar {
   margin-top: 10px; padding-top: 10px;
   border-top: 1px solid var(--border);
-  display: flex; gap: 8px; flex-wrap: wrap;
 }
-.highlight-link {
+.highlight-toggle {
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; font-weight: 700; color: var(--accent-blue);
-  text-decoration: none; padding: 6px 12px;
+  cursor: pointer; padding: 6px 12px;
   border: 1px solid var(--border); border-radius: 6px;
   background: var(--sand-50); transition: all 0.15s;
+  font-family: inherit;
 }
-.highlight-link:hover { background: var(--sand-100); border-color: var(--accent-blue); }
-.highlight-link .hl-icon { font-size: 14px; }
+.highlight-toggle:hover { background: var(--sand-100); border-color: var(--accent-blue); }
+.highlight-toggle .hl-icon { font-size: 14px; }
+.yt-embed {
+  margin-top: 10px; border-radius: 8px; overflow: hidden;
+  background: #000; aspect-ratio: 16/9; width: 100%;
+}
+.yt-embed iframe { width: 100%; height: 100%; border: none; }
 
 /* FACTOR BREAKDOWN */
 .factor-toggle {
@@ -403,20 +408,17 @@ footer {
 // Elo calculated from win%. Four Factors not available from this source.
 // Home/Away splits are REAL from standings — do NOT overwrite with estimates.
 
-// NBA Team IDs for CDN logo images
-const TEAM_LOGO = {
-  ATL: 1610612737, BOS: 1610612738, BKN: 1610612751, CHO: 1610612766,
-  CHI: 1610612741, CLE: 1610612739, DAL: 1610612742, DEN: 1610612743,
-  DET: 1610612765, GSW: 1610612744, HOU: 1610612745, IND: 1610612754,
-  LAC: 1610612746, LAL: 1610612747, MEM: 1610612763, MIA: 1610612748,
-  MIL: 1610612749, MIN: 1610612750, NOP: 1610612740, NYK: 1610612752,
-  OKC: 1610612760, ORL: 1610612753, PHI: 1610612755, PHX: 1610612756,
-  POR: 1610612757, SAC: 1610612758, SAS: 1610612759, TOR: 1610612761,
-  UTA: 1610612762, WAS: 1610612764,
+// ESPN logo abbreviations (all 30 teams verified)
+const ESPN_ABBREV = {
+  ATL: 'atl', BOS: 'bos', BKN: 'bkn', CHO: 'cha', CHI: 'chi', CLE: 'cle',
+  DAL: 'dal', DEN: 'den', DET: 'det', GSW: 'gs', HOU: 'hou', IND: 'ind',
+  LAC: 'lac', LAL: 'lal', MEM: 'mem', MIA: 'mia', MIL: 'mil', MIN: 'min',
+  NOP: 'no', NYK: 'ny', OKC: 'okc', ORL: 'orl', PHI: 'phi', PHX: 'phx',
+  POR: 'por', SAC: 'sac', SAS: 'sa', TOR: 'tor', UTA: 'utah', WAS: 'wsh',
 };
 function teamLogo(key) {
-  const id = TEAM_LOGO[key];
-  return id ? `https://cdn.nba.com/logos/nba/${id}/global/L/logo.png` : '';
+  const abbr = ESPN_ABBREV[key];
+  return abbr ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${abbr}.png&w=100&h=100` : '';
 }
 
 const TEAMS = {
@@ -984,6 +986,7 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
 
   const isLive = game.statusNum === 2;
   const isFinal = game.statusNum === 3;
+  const [showHL, setShowHL] = React.useState(false);
 
   function formatGameClock() {
     if (!isLive) return '';
@@ -1009,17 +1012,10 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
   const homeLeader = game.leaders?.home;
   const hasLeaders = (isLive || isFinal) && (awayLeader || homeLeader);
 
-  // Build YouTube highlight search URL for Final games
-  function getHighlightUrl() {
-    const awayName = away.name;
-    const homeName = home.name;
-    const today = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Los_Angeles" });
-    return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${awayName} vs ${homeName} highlights ${today}`)}`;
-  }
-  function getRecapUrl() {
-    const awayName = away.name;
-    const homeName = home.name;
-    return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${awayName} ${homeName} full game highlights NBA`)}`;
+  // YouTube embed search URL for highlights
+  function getYouTubeEmbedUrl() {
+    const query = `${away.name} vs ${home.name} highlights NBA`;
+    return `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(query)}`;
   }
 
   return (
@@ -1136,12 +1132,18 @@ function GameCard({ game, pred, isExpanded, onToggle }) {
         {/* Highlights — only for Final games */}
         {isFinal && (
           <div className="highlights-bar">
-            <a className="highlight-link" href={getHighlightUrl()} target="_blank" rel="noopener noreferrer">
-              <span className="hl-icon">▶</span> Game Highlights
-            </a>
-            <a className="highlight-link" href={getRecapUrl()} target="_blank" rel="noopener noreferrer">
-              <span className="hl-icon">📋</span> Full Recap
-            </a>
+            <button className="highlight-toggle" onClick={() => setShowHL(!showHL)}>
+              <span className="hl-icon">{showHL ? '▼' : '▶'}</span> {showHL ? 'Hide Highlights' : 'Watch Highlights'}
+            </button>
+            {showHL && (
+              <div className="yt-embed">
+                <iframe
+                  src={getYouTubeEmbedUrl()}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              </div>
+            )}
           </div>
         )}
 
