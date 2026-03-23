@@ -87,6 +87,36 @@ main { padding: 24px 0 60px; }
 /* GAME CARDS */
 .games-grid { display: flex; flex-direction: column; gap: 12px; }
 
+/* DATE NAVIGATION */
+.date-nav {
+  display: flex; align-items: center; justify-content: center;
+  gap: 16px; margin-bottom: 20px;
+}
+.date-nav-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--card);
+  cursor: pointer; font-size: 16px; color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+  font-family: inherit; transition: all 0.15s;
+}
+.date-nav-btn:hover { background: var(--sand-100); border-color: var(--sand-400); }
+.date-nav-label { text-align: center; }
+.date-nav-day {
+  font-family: 'DM Serif Display', serif;
+  font-size: 20px; color: var(--text);
+}
+.date-nav-relative {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--accent-gold); margin-top: 2px;
+}
+.date-nav-today {
+  font-size: 11px; font-weight: 700; color: var(--accent-blue);
+  cursor: pointer; background: none; border: 1px solid var(--accent-blue);
+  padding: 2px 10px; border-radius: 12px; font-family: inherit;
+  margin-left: 8px; transition: all 0.15s;
+}
+.date-nav-today:hover { background: var(--accent-blue); color: #fff; }
+
 .game-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -372,6 +402,18 @@ footer {
   background: #fff3e0; color: #e65100; display: inline-block;
 }
 
+/* INJURY TAGS */
+.injury-list {
+  margin-top: 4px; display: flex; flex-wrap: wrap; gap: 3px;
+}
+.injury-tag {
+  font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 3px;
+  display: inline-flex; align-items: center; gap: 3px; line-height: 1.4;
+}
+.injury-tag.out { background: #fce4ec; color: #c62828; }
+.injury-tag.dtd { background: #fff3e0; color: #e65100; }
+.injury-tag.gtd { background: #fff8e1; color: #f9a825; }
+
 /* LAST PLAY / HEADLINE */
 .last-play {
   margin-top: 8px; padding: 8px 12px;
@@ -452,6 +494,63 @@ const ESPN_ABBREV_REVERSE = {
   NOP: 'NO', NYK: 'NY', OKC: 'OKC', ORL: 'ORL', PHI: 'PHI', PHX: 'PHX',
   POR: 'POR', SAC: 'SAC', SAS: 'SA', TOR: 'TOR', UTA: 'UTAH', WAS: 'WSH',
 };
+
+// Map ESPN abbreviations back to our TEAMS keys
+function espnToOurKey(espnAbbrev) {
+  const map = {
+    GS: 'GSW', NO: 'NOP', NY: 'NYK', SA: 'SAS', UTAH: 'UTA',
+    WSH: 'WAS', CHA: 'CHO', PHO: 'PHX', BRK: 'BKN',
+  };
+  return map[espnAbbrev] || espnAbbrev;
+}
+
+// Fetch games for a specific date from ESPN proxy — returns our game format
+async function fetchGamesForDate(dateStr) {
+  try {
+    const resp = await fetch(`/api/espn?date=${dateStr}`);
+    if (!resp.ok) throw new Error('ESPN date fetch failed');
+    const data = await resp.json();
+    if (!data.success || !data.games || data.games.length === 0) return [];
+
+    return data.games.map(g => {
+      const awayKey = espnToOurKey(g.awayAbbrev);
+      const homeKey = espnToOurKey(g.homeAbbrev);
+      const statusNum = g.statusState === 'post' ? 3 : g.statusState === 'in' ? 2 : 1;
+
+      return {
+        id: g.espnId,
+        status: g.detail || g.status,
+        statusNum,
+        period: g.period || 0,
+        gameClock: g.clock ? `PT${g.clock.replace(':', 'M')}S` : '',
+        away: {
+          abbrev: awayKey,
+          score: g.awayScore || 0,
+          periods: g.awayPeriods || [],
+          timeouts: 0,
+          inBonus: false,
+        },
+        home: {
+          abbrev: homeKey,
+          score: g.homeScore || 0,
+          periods: g.homePeriods || [],
+          timeouts: 0,
+          inBonus: false,
+        },
+        leaders: {
+          away: g.awayLeader,
+          home: g.homeLeader,
+        },
+        // ESPN extras
+        espnLastPlay: g.lastPlay,
+        espnHeadline: g.headline,
+      };
+    });
+  } catch (e) {
+    console.log('ESPN date fetch error:', e.message);
+    return [];
+  }
+}
 
 const TEAMS = {
   OKC: { name: "Thunder", city: "Oklahoma City", conf: "West", w: 55, l: 15, homeW: 30, homeL: 5, awayW: 25, awayL: 10, elo: 1759, netRtg: 11.0, offRtg: 118.4, defRtg: 107.4, efg: 0, tov: 0, oreb: 0, ftRate: 0, pace: 99.4, ppg: 118.5, papg: 107.5, streak: "W10", last10: "10-0" },
@@ -744,14 +843,20 @@ const ENGINE = {
 // ─── SCOREBOARD FETCH ─────────────────────────────────────────
 
 async function fetchTodaysGames() {
-  // Use our Vercel API proxy which handles all the NBA endpoint retries server-side
-  // CDN calls from the browser get CORS blocked, so everything goes through /api/scores
+  // Get today's date in PT for comparison
+  const todayPT = new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+  const todayESPN = todayPT.replace(/-/g, ''); // YYYYMMDD
+
+  // Source 1: NBA CDN via our proxy (best for live data)
   try {
     const resp = await fetch(`/api/scores`);
     if (resp.ok) {
       const data = await resp.json();
+      const cdnDate = data.scoreboard?.gameDate; // "2026-03-23"
 
-      if (data.scoreboard && data.scoreboard.games && data.scoreboard.games.length > 0) {
+      // Only use NBA CDN if it's showing today's games
+      if (cdnDate === todayPT && data.scoreboard.games && data.scoreboard.games.length > 0) {
+        console.log(`[NBA Predict] NBA CDN has today's games (${cdnDate})`);
         return data.scoreboard.games.map(g => ({
           id: g.gameId,
           status: g.gameStatusText || String(g.gameStatus),
@@ -780,13 +885,26 @@ async function fetchTodaysGames() {
             home: g.gameLeaders?.homeLeaders || null,
           },
         }));
+      } else {
+        console.log(`[NBA Predict] NBA CDN is stale (showing ${cdnDate}, today is ${todayPT}), falling through to ESPN`);
       }
     }
   } catch (e) {
-    console.log("Scoreboard fetch failed:", e);
+    console.log("NBA CDN fetch failed:", e);
   }
 
-  // Fallback: return hardcoded sample games for today
+  // Source 2: ESPN (always has today's schedule, even before games start)
+  try {
+    const espnGames = await fetchGamesForDate(todayESPN);
+    if (espnGames.length > 0) {
+      console.log(`[NBA Predict] Using ESPN for today's ${espnGames.length} games`);
+      return espnGames;
+    }
+  } catch (e) {
+    console.log("ESPN fallback failed:", e);
+  }
+
+  // Source 3: Hardcoded fallback
   return getFallbackGames();
 }
 
@@ -899,6 +1017,7 @@ function App() {
   const [expanded, setExpanded] = React.useState({});
   const [dataSource, setDataSource] = React.useState("embedded"); // "live" or "embedded"
   const [espnData, setEspnData] = React.useState({}); // keyed by "AWAY @ HOME" shortName
+  const [injuryData, setInjuryData] = React.useState({}); // keyed by ESPN team abbrev
 
   // Fetch ESPN last play + headlines
   function fetchESPN() {
@@ -910,6 +1029,21 @@ function App() {
           map[g.name] = g;
         });
         setEspnData(map);
+      }
+    }).catch(() => {});
+  }
+
+  // Fetch injuries once on load (5min cache on server)
+  function fetchInjuries() {
+    fetch("/api/espn?injuries=1").then(r => r.json()).then(data => {
+      if (data.success && data.games) {
+        const injMap = {};
+        data.games.forEach(g => {
+          if (g.awayInjuries?.length) injMap[g.awayAbbrev] = g.awayInjuries;
+          if (g.homeInjuries?.length) injMap[g.homeAbbrev] = g.homeInjuries;
+        });
+        setInjuryData(injMap);
+        console.log("[NBA Predict] Injuries loaded: " + Object.keys(injMap).length + " teams with injuries");
       }
     }).catch(() => {});
   }
@@ -927,15 +1061,18 @@ function App() {
 
     // Initial ESPN fetch
     fetchESPN();
+    fetchInjuries();
 
-    // Auto-refresh scores every 30 seconds + ESPN every 15 seconds for live play updates
+    // Auto-refresh scores every 30 seconds + ESPN every 15 seconds
+    // Injuries refresh every 5 minutes
     const scoreInterval = setInterval(() => {
       fetchTodaysGames().then(g => {
         if (g && g.length > 0) setGames(g);
       }).catch(() => {});
     }, 30000);
     const espnInterval = setInterval(fetchESPN, 15000);
-    return () => { clearInterval(scoreInterval); clearInterval(espnInterval); };
+    const injInterval = setInterval(fetchInjuries, 300000);
+    return () => { clearInterval(scoreInterval); clearInterval(espnInterval); clearInterval(injInterval); };
   }, []);
 
   const todayStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "America/Los_Angeles" });
@@ -945,7 +1082,26 @@ function App() {
     const homeKey = mapTricode(g.home.abbrev);
     const awayB2B = g.away.b2b || false;
     const homeB2B = g.home.b2b || g.homeB2B || false;
-    return { game: g, pred: ENGINE.predict(awayKey, homeKey, awayB2B, homeB2B) };
+
+    // Look up injuries for each team
+    const awayESPN = ESPN_ABBREV_REVERSE[awayKey] || g.away.abbrev;
+    const homeESPN = ESPN_ABBREV_REVERSE[homeKey] || g.home.abbrev;
+    const awayInj = injuryData[awayESPN] || [];
+    const homeInj = injuryData[homeESPN] || [];
+
+    // Convert to engine format: { status, impact }
+    const toEngineInj = (inj) => inj
+      .filter(i => i.status === 'Out' || i.status === 'Day-To-Day' || i.status === 'Doubtful' || i.status === 'Questionable')
+      .map(i => ({
+        status: i.statusAbbrev || (i.status === 'Out' ? 'O' : i.status === 'Doubtful' ? 'D' : 'Q'),
+        impact: 3,
+      }));
+
+    return {
+      game: g,
+      pred: ENGINE.predict(awayKey, homeKey, awayB2B, homeB2B, toEngineInj(awayInj), toEngineInj(homeInj)),
+      injuries: { away: awayInj, home: homeInj },
+    };
   }).filter(p => p.pred);
 
   return (
@@ -1036,8 +1192,8 @@ function GamesTab({ loading, predictions, expanded, setExpanded, espnData }) {
     <div>
       <h2 className="section-title">Today's Predictions</h2>
       <div className="games-grid">
-        {predictions.map(({ game, pred }) => (
-          <GameCard key={game.id} game={game} pred={pred} isExpanded={expanded[game.id]} onToggle={() => setExpanded(prev => ({ ...prev, [game.id]: !prev[game.id] }))} espn={findEspn(game, pred)} />
+        {predictions.map(({ game, pred, injuries }) => (
+          <GameCard key={game.id} game={game} pred={pred} injuries={injuries} isExpanded={expanded[game.id]} onToggle={() => setExpanded(prev => ({ ...prev, [game.id]: !prev[game.id] }))} espn={findEspn(game, pred)} />
         ))}
       </div>
     </div>
@@ -1045,7 +1201,7 @@ function GamesTab({ loading, predictions, expanded, setExpanded, espnData }) {
 }
 
 
-function GameCard({ game, pred, isExpanded, onToggle, espn }) {
+function GameCard({ game, pred, injuries, isExpanded, onToggle, espn }) {
   const away = TEAMS[pred.awayKey];
   const home = TEAMS[pred.homeKey];
   if (!away || !home) return null;
@@ -1111,6 +1267,15 @@ function GameCard({ game, pred, isExpanded, onToggle, espn }) {
               </div>
             </div>
             {(isLive || isFinal) && <div className="team-name" style={{ fontSize: 24, marginTop: 4 }}>{game.away.score}</div>}
+            {injuries?.away?.length > 0 && (
+              <div className="injury-list">
+                {injuries.away.map((inj, i) => (
+                  <span key={i} className={`injury-tag ${inj.status === 'Out' ? 'out' : inj.status === 'Day-To-Day' ? 'dtd' : 'gtd'}`}>
+                    {inj.name} ({inj.status === 'Out' ? 'OUT' : inj.status === 'Day-To-Day' ? 'DTD' : inj.statusAbbrev || 'GTD'})
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="vs-block">
@@ -1144,6 +1309,15 @@ function GameCard({ game, pred, isExpanded, onToggle, espn }) {
               </div>
             </div>
             {(isLive || isFinal) && <div className="team-name" style={{ fontSize: 24, marginTop: 4 }}>{game.home.score}</div>}
+            {injuries?.home?.length > 0 && (
+              <div className="injury-list" style={{ justifyContent: 'flex-end' }}>
+                {injuries.home.map((inj, i) => (
+                  <span key={i} className={`injury-tag ${inj.status === 'Out' ? 'out' : inj.status === 'Day-To-Day' ? 'dtd' : 'gtd'}`}>
+                    {inj.name} ({inj.status === 'Out' ? 'OUT' : inj.status === 'Day-To-Day' ? 'DTD' : inj.statusAbbrev || 'GTD'})
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1207,17 +1381,17 @@ function GameCard({ game, pred, isExpanded, onToggle, espn }) {
         )}
 
         {/* Last Play — live games only */}
-        {isLive && espn?.lastPlay && (
+        {isLive && (espn?.lastPlay || game.espnLastPlay) && (
           <div className="last-play">
             <div className="last-play-label">Last Play</div>
-            <div className="last-play-text">{espn.lastPlay}</div>
+            <div className="last-play-text">{espn?.lastPlay || game.espnLastPlay}</div>
           </div>
         )}
 
         {/* Game Headline — final games only */}
-        {isFinal && espn?.headline && (
+        {isFinal && (espn?.headline || game.espnHeadline) && (
           <div className="game-headline">
-            <div className="game-headline-text">{espn.headline}</div>
+            <div className="game-headline-text">{espn?.headline || game.espnHeadline}</div>
           </div>
         )}
 
