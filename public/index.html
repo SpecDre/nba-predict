@@ -678,20 +678,16 @@ const ENGINE = {
   },
 
   // Injury impact estimation (points adjustment)
+  // Only counts OUT players, capped at -10 pts max per team
   injuryImpact(injuries) {
     if (!injuries || injuries.length === 0) return 0;
     let totalImpact = 0;
     injuries.forEach(inj => {
-      // Star players (top usage) = bigger impact
       if (inj.status === "Out" || inj.status === "O") {
-        totalImpact -= (inj.impact || 3); // default 3 pts for unknown players
-      } else if (inj.status === "Doubtful" || inj.status === "D") {
-        totalImpact -= (inj.impact || 3) * 0.75;
-      } else if (inj.status === "Questionable" || inj.status === "Q") {
-        totalImpact -= (inj.impact || 3) * 0.3;
+        totalImpact -= (inj.impact || 3);
       }
     });
-    return totalImpact;
+    return Math.max(totalImpact, -10); // cap at -10 points
   },
 
   // MAIN PREDICTION FUNCTION
@@ -1089,11 +1085,11 @@ function App() {
     const awayInj = injuryData[awayESPN] || [];
     const homeInj = injuryData[homeESPN] || [];
 
-    // Convert to engine format: { status, impact }
+    // Convert to engine format — only OUT players matter
     const toEngineInj = (inj) => inj
-      .filter(i => i.status === 'Out' || i.status === 'Day-To-Day' || i.status === 'Doubtful' || i.status === 'Questionable')
+      .filter(i => i.status === 'Out')
       .map(i => ({
-        status: i.statusAbbrev || (i.status === 'Out' ? 'O' : i.status === 'Doubtful' ? 'D' : 'Q'),
+        status: 'O',
         impact: 3,
       }));
 
@@ -1267,15 +1263,21 @@ function GameCard({ game, pred, injuries, isExpanded, onToggle, espn }) {
               </div>
             </div>
             {(isLive || isFinal) && <div className="team-name" style={{ fontSize: 24, marginTop: 4 }}>{game.away.score}</div>}
-            {injuries?.away?.length > 0 && (
-              <div className="injury-list">
-                {injuries.away.map((inj, i) => (
-                  <span key={i} className={`injury-tag ${inj.status === 'Out' ? 'out' : inj.status === 'Day-To-Day' ? 'dtd' : 'gtd'}`}>
-                    {inj.name} ({inj.status === 'Out' ? 'OUT' : inj.status === 'Day-To-Day' ? 'DTD' : inj.statusAbbrev || 'GTD'})
-                  </span>
-                ))}
-              </div>
-            )}
+            {injuries?.away?.length > 0 && (() => {
+              const sorted = [...injuries.away].sort((a, b) => (a.status === 'Out' ? 0 : 1) - (b.status === 'Out' ? 0 : 1));
+              const shown = sorted.slice(0, 4);
+              const extra = sorted.length - shown.length;
+              return (
+                <div className="injury-list">
+                  {shown.map((inj, i) => (
+                    <span key={i} className={`injury-tag ${inj.status === 'Out' ? 'out' : inj.status === 'Day-To-Day' ? 'dtd' : 'gtd'}`}>
+                      {inj.name} ({inj.status === 'Out' ? 'OUT' : inj.status === 'Day-To-Day' ? 'DTD' : inj.statusAbbrev || 'GTD'})
+                    </span>
+                  ))}
+                  {extra > 0 && <span className="injury-tag gtd">+{extra} more</span>}
+                </div>
+              );
+            })()}
           </div>
 
           <div className="vs-block">
@@ -1309,15 +1311,21 @@ function GameCard({ game, pred, injuries, isExpanded, onToggle, espn }) {
               </div>
             </div>
             {(isLive || isFinal) && <div className="team-name" style={{ fontSize: 24, marginTop: 4 }}>{game.home.score}</div>}
-            {injuries?.home?.length > 0 && (
-              <div className="injury-list" style={{ justifyContent: 'flex-end' }}>
-                {injuries.home.map((inj, i) => (
-                  <span key={i} className={`injury-tag ${inj.status === 'Out' ? 'out' : inj.status === 'Day-To-Day' ? 'dtd' : 'gtd'}`}>
-                    {inj.name} ({inj.status === 'Out' ? 'OUT' : inj.status === 'Day-To-Day' ? 'DTD' : inj.statusAbbrev || 'GTD'})
-                  </span>
-                ))}
-              </div>
-            )}
+            {injuries?.home?.length > 0 && (() => {
+              const sorted = [...injuries.home].sort((a, b) => (a.status === 'Out' ? 0 : 1) - (b.status === 'Out' ? 0 : 1));
+              const shown = sorted.slice(0, 4);
+              const extra = sorted.length - shown.length;
+              return (
+                <div className="injury-list" style={{ justifyContent: 'flex-end' }}>
+                  {shown.map((inj, i) => (
+                    <span key={i} className={`injury-tag ${inj.status === 'Out' ? 'out' : inj.status === 'Day-To-Day' ? 'dtd' : 'gtd'}`}>
+                      {inj.name} ({inj.status === 'Out' ? 'OUT' : inj.status === 'Day-To-Day' ? 'DTD' : inj.statusAbbrev || 'GTD'})
+                    </span>
+                  ))}
+                  {extra > 0 && <span className="injury-tag gtd">+{extra} more</span>}
+                </div>
+              );
+            })()}
           </div>
         </div>
 
